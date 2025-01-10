@@ -1,0 +1,106 @@
+.smart-changes {
+  white-space: normal;
+
+  .sc-sub-line-change {
+    filter: brightness(1.2);
+  }
+
+  & ul{
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+
+  .sc-original.replace {
+    color: var(--text-normal, #000);
+    background-color: hsla(0, 100%, 50%, 0.2); /* red hue in HSL */
+    filter: brightness(0.9);
+    .sc-sub-line-change {
+      text-decoration: line-through;
+      background-color: hsla(0, 100%, 50%, 0.21); /* red hue in HSL */
+    }
+  }
+  .sc-suggested {
+    border: 1px solid var(--background-modifier-border, #ccc);
+    border-radius: 4px;
+    color: var(--text-normal, #000);
+    background-color: hsla(120, 100%, 50%, 0.2); /* green hue in HSL */
+    white-space: normal;
+    filter: brightness(0.9);
+    font-weight: 300;
+    .sc-sub-line-change {
+      font-weight: 600;
+      background-color: hsla(120, 100%, 50%, 0.21); /* green hue in HSL */
+    }
+
+    &:empty {
+      display: none;
+    }
+
+    /* & * {
+      all: unset;
+      line-height: 1.5;
+    }
+    & ul {
+      margin-block-end: 0;
+      display: list-item;
+      & li {
+        margin-block-start: 40px;
+        margin-block-end: 0;
+      }
+    } */
+    /* & ul {
+      line-height: 1.5;
+      display: flex;
+    }
+    & li {
+      line-height: 1;
+    } */
+
+  }
+  /* Container for Approve/Discard buttons */
+  .diff-line-buttons {
+    margin-left: 10px;
+    float: right;
+    z-index: 1000;
+    position: relative;
+    .diff-button {
+      font-size: 0.8em;
+      padding: 2px 6px;
+      margin-left: 5px;
+      cursor: pointer;
+      border-radius: 3px;
+      border: 1px solid var(--background-modifier-border, #ccc);
+      color: var(--text-normal, #000);
+    }
+    .approve-button {
+      background-color: var(--interactive-success, #8fdf8f);
+      border-color: var(--interactive-success-hover, #57c657);
+    }
+    
+    .discard-button {
+      background-color: var(--interactive-error, #ffa8a8);
+      border-color: var(--interactive-error-hover, #ff6b6b);
+    }
+    .approve-button:hover,
+    .approve-button:focus {
+      background-color: var(--interactive-success-hover, #76d976);
+      outline: none;
+    }
+    .discard-button:hover,
+    .discard-button:focus {
+      background-color: var(--interactive-error-hover, #ff8f8f);
+      outline: none;
+    }
+  }
+}
+
+.smart-changes-instructions {
+  margin-top: 1em;
+  color: var(--text-muted, #666);
+  font-style: italic;
+  font-size: 0.9em;
+}
+
+
+
+

@@ -1,0 +1,40 @@
+{
+  "name": "smart-visualizer-obsidian",
+  "version": "1.0.1",
+  "type": "module",
+  "description": "Visualize Smart Clusters and Cluster Groups in Obsidian.",
+  "scripts": {
+    "build": "node esbuild.js",
+    "release": "node release.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/brianpetro/smart-visualizer-obsidian.git"
+  },
+  "keywords": [
+    "Obsidian",
+    "Smart",
+    "Clusters",
+    "Cluster Groups"
+  ],
+  "author": "WFH Brian (Brian Petro)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/brianpetro/smart-visualizer-obsidian/issues"
+  },
+  "homepage": "https://smartconnections.app",
+  "devDependencies": {
+    "archiver": "^7.0.1",
+    "ava": "^5.3.1",
+    "axios": "^1.7.9",
+    "dotenv": "^16.4.7",
+    "esbuild": "^0.24.0"
+  },
+  "dependencies": {
+    "d3": "^7.9.0",
+    "obsidian-smart-env": "file:../obsidian-smart-env",
+    "smart-cluster-groups": "file:../jsbrains/smart-cluster-groups",
+    "smart-clusters": "file:../jsbrains/smart-clusters",
+    "smart-entities": "file:../jsbrains/smart-entities"
+  }
+}

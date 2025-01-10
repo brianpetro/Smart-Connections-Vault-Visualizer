@@ -1,0 +1,10 @@
+{
+  "id": "smart-visualizer",
+  "name": "Smart Visualizer",
+  "version": "1.0.1",
+  "minAppVersion": "0.12.0",
+  "description": "A plugin that shows a side panel to input updated content and highlights differences from the current file.",
+  "author": "🌴 Brian",
+  "authorUrl": "https://smartconnections.app",
+  "isDesktopOnly": false
+}
