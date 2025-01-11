@@ -13,7 +13,7 @@
 import { cos_sim } from 'smart-entities/utils/cos_sim.js';  // Make sure this export is valid
 import * as d3 from 'd3';
 
-export async function build_html(clusters, opts = {}) {
+export async function build_html(cluster_groups, opts = {}) {
   return `
     <div class="sc-clusters-visualizer-view" style="width: 100%; height: 100%;">
       <div class="sc-top-bar">
@@ -44,9 +44,13 @@ export async function build_html(clusters, opts = {}) {
  * @param {Object} [opts] - Additional options
  * @returns {Promise<HTMLElement>} The rendered fragment
  */
-export async function render(clusters, opts = {}) {
+export async function render(cluster_groups, opts = {}) {
+  // const plugin_class = cluster_groups.env.smart_visualizer_plugin;
+  const snapshot = await cluster_groups.get_snapshot(Object.values(cluster_groups.env.smart_sources.items));
+  const {clusters, members} = snapshot;
+
   // 1. Build top-level HTML
-  const html = await build_html.call(this, clusters, opts);
+  const html = await build_html.call(this, cluster_groups, opts);
   const frag = this.create_doc_fragment(html);
 
   // 2. Reference the SVG, set up d3
@@ -288,10 +292,10 @@ export async function render(clusters, opts = {}) {
     d.fy = null;
   }
 
-  return await post_process.call(this, clusters, frag, opts);
+  return await post_process.call(this, cluster_groups, frag, opts);
 }
 
-export async function post_process(clusters, frag, opts = {}) {
+export async function post_process(cluster_groups, frag, opts = {}) {
   const refreshBtn = frag.querySelector('.sc-refresh');
   if (refreshBtn) {
     refreshBtn.addEventListener('click', () => {
@@ -303,7 +307,7 @@ export async function post_process(clusters, frag, opts = {}) {
   const rebuildBtn = frag.querySelector('.sc-rebuild');
   if (rebuildBtn) {
     rebuildBtn.addEventListener('click', async () => {
-      await clusters.build_groups();
+      await cluster_groups.build_groups();
       if (typeof opts.refresh_view === 'function') {
         opts.refresh_view();
       }
