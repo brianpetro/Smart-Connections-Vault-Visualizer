@@ -36,7 +36,7 @@ export class CenterSelectModal extends FuzzySuggestModal {
       { command: 'Esc', purpose: 'Close' },
     ]);
 
-    this.submit_btn_text = 'Build Context';
+    this.submit_btn_text = 'Select Centers';
   }
   onOpen() {
     super.onOpen();

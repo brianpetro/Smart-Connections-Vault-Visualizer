@@ -11,6 +11,7 @@ import { Clusters, Cluster } from "../jsbrains/smart-clusters/index.js";
 import { ClusterGroups, ClusterGroup } from "../jsbrains/smart-cluster-groups/index.js";
 import { ClustersVisualizerView } from "./clusters_visualizer.obsidian.js";
 import { render as render_clusters_visualizer } from "./dist/clusters_visualizer.js";
+import { CenterSelectModal } from "./center_select_modal.js";
 /**
  * Main plugin class for Smart Visualizer.
  */
@@ -55,6 +56,17 @@ class SmartVisualizerPlugin extends Plugin {
         this.activate_view();
       },
     });
+
+    // Command to open center select modal
+    this.addCommand({
+      id: 'open-center-select-modal',
+      name: 'Select Centers',
+      callback: () => {
+        const modal = new CenterSelectModal(this.app, this);
+        modal.open();
+      },
+    });
+
 
 
 
