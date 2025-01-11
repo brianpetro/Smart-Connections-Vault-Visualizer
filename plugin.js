@@ -67,11 +67,11 @@ class SmartVisualizerPlugin extends Plugin {
       },
     });
 
-
-
-
     // Attach environment config
-    wait_for_smart_env_then_init(this, this.smart_env_config);
+    wait_for_smart_env_then_init(this, this.smart_env_config).then(() => {
+      // temp until sc op gets latest version of smart_env
+      this.env._components = {}; // clear component cache
+    });
   }
 
   /**

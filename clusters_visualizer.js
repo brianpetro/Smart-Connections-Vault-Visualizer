@@ -48,7 +48,7 @@ export async function render(cluster_groups, opts = {}) {
   console.log('render', cluster_groups);
   // const plugin_class = cluster_groups.env.smart_visualizer_plugin;
   const cluster_group = Object.values(cluster_groups.items)[0];
-  if(!cluster_group) return this.create_doc_fragment('<div>No cluster group found</div>');
+  if(!cluster_group) return this.create_doc_fragment('<div>No cluster group found!</div>');
   const snapshot = await cluster_group.get_snapshot(Object.values(cluster_groups.env.smart_sources.items));
   const {clusters, members} = snapshot;
   console.log('clusters', clusters);
