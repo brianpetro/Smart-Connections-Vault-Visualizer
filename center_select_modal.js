@@ -36,7 +36,7 @@ export class CenterSelectModal extends FuzzySuggestModal {
       { command: 'Esc', purpose: 'Close' },
     ]);
 
-    this.submit_btn_text = 'Select Centers';
+    this.submit_btn_text = 'Select Cluster Centers';
   }
   onOpen() {
     super.onOpen();
@@ -46,23 +46,18 @@ export class CenterSelectModal extends FuzzySuggestModal {
     this.render_pills();
   }
   getItems() {
-    const files = this.app.vault.getFiles();
-    return files
-      .filter((f) => {
-        if(f.extension.toLowerCase() !== 'md') return false;
-        if(this.selected_items.some((i) => i.file.path === f.path)) return false;
-        return true;
-      })
-    ;
+    return Object.keys(this.plugin.env.smart_sources.items).filter((key) => {
+      return !this.selected_items.includes(key);
+    });
   }
-  getItemText(file) {
-    return file.path;
+  getItemText(key) {
+    return key;
   }
-  onChooseItem(file) {
+  onChooseItem(key) {
     // get input value and set it to this.current_input
     this.current_input = this.inputEl.value;
     console.log('modal', this);
-    this.selected_items.push({ file });
+    this.selected_items.push(key);
     this.render_pills();
     this.open(); // stay open
   }
@@ -91,7 +86,7 @@ export class CenterSelectModal extends FuzzySuggestModal {
     }
     for (const sel of this.selected_items) {
       const pill = this.selected_container_el.createDiv('sc-selected-pill');
-      pill.createSpan({ text: sel.file.basename });
+      pill.createSpan({ text: sel.split('/').pop() });
       
       // Optional: add an 'x' icon to remove
       const remove_el = pill.createSpan({
