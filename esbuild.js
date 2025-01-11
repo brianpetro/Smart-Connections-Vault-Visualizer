@@ -1,6 +1,9 @@
 import esbuild from 'esbuild';
 import fs from 'fs';
 import path from 'path';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 // if directory doesn't exist, create it
 if(!fs.existsSync(path.join(process.cwd(), 'dist'))) {
@@ -19,11 +22,7 @@ fs.writeFileSync(manifest_path, JSON.stringify(manifest_json, null, 2));
 fs.copyFileSync(manifest_path, path.join(process.cwd(), 'dist', 'manifest.json'));
 fs.copyFileSync(styles_path, path.join(process.cwd(), 'dist', 'styles.css'));
 
-const destination_vaults = [
-  // 'sc-test-vault',
-  'obsidian-1',
-  'Obsidian-C',
-];
+const destination_vaults = process.env.DESTINATION_VAULTS.split(',');
 
 // get first argument as entry point
 const entry_point = process.argv[2] || 'plugin.js';
