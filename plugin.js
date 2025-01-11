@@ -60,7 +60,7 @@ class SmartVisualizerPlugin extends Plugin {
     // Command to open center select modal
     this.addCommand({
       id: 'open-center-select-modal',
-      name: 'Select Centers',
+      name: 'Select Cluster Centers',
       callback: () => {
         const modal = new CenterSelectModal(this.app, this);
         modal.open();
