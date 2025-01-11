@@ -102,7 +102,7 @@ export class CenterSelectModal extends FuzzySuggestModal {
     }
   }
   submit() {
-    this.env.cluster_groups.create_group(this.selected_items.map(f => f.path));
+    this.env.cluster_groups.create_group(this.selected_items);
   }
 }
 
