@@ -45,9 +45,13 @@ export async function build_html(cluster_groups, opts = {}) {
  * @returns {Promise<HTMLElement>} The rendered fragment
  */
 export async function render(cluster_groups, opts = {}) {
+  console.log('render', cluster_groups);
   // const plugin_class = cluster_groups.env.smart_visualizer_plugin;
-  const snapshot = await cluster_groups.get_snapshot(Object.values(cluster_groups.env.smart_sources.items));
+  const cluster_group = Object.values(cluster_groups.items)[0];
+  if(!cluster_group) return this.create_doc_fragment('<div>No cluster group found</div>');
+  const snapshot = await cluster_group.get_snapshot(Object.values(cluster_groups.env.smart_sources.items));
   const {clusters, members} = snapshot;
+  console.log('clusters', clusters);
 
   // 1. Build top-level HTML
   const html = await build_html.call(this, cluster_groups, opts);
