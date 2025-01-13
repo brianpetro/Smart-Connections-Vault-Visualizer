@@ -71,7 +71,7 @@ export async function build_html(cluster_groups, opts = {}) {
  */
 export async function render(cluster_groups, opts = {}) {
   console.log('render', cluster_groups);
-  console.log('hello world');
+  console.log('hello MFer');
   // const plugin_class = cluster_groups.env.smart_visualizer_plugin;
   const cluster_group = Object.values(cluster_groups.items)[0];
   if(!cluster_group) return this.create_doc_fragment('<div>No cluster group found!</div>');

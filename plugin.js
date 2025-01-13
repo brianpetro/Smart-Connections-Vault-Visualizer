@@ -79,6 +79,7 @@ class SmartVisualizerPlugin extends Plugin {
    */
   onunload() {
     this.env.unload_main("smart_visualizer_plugin");
+    this.env._components = {}; // clear component cache
     console.log("unloaded smart_visualizer_plugin");
   }
 
