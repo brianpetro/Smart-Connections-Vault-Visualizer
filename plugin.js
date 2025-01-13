@@ -46,7 +46,6 @@ class SmartVisualizerPlugin extends Plugin {
    * Registers the Smart Visualizer view and commands.
    */
   async onload() {
-    this.registerView("smart-visualizer-view", (leaf) => new ClustersVisualizerView(leaf, this));
 
     // Command to open the side panel
     this.addCommand({
@@ -71,6 +70,7 @@ class SmartVisualizerPlugin extends Plugin {
     wait_for_smart_env_then_init(this, this.smart_env_config).then(() => {
       // temp until sc op gets latest version of smart_env
       this.env._components = {}; // clear component cache
+      this.registerView("smart-visualizer-view", (leaf) => new ClustersVisualizerView(leaf, this));
     });
   }
 
