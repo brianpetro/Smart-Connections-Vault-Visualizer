@@ -4,7 +4,7 @@
   "type": "module",
   "description": "Visualize Smart Clusters and Cluster Groups in Obsidian.",
   "scripts": {
-    "build": "node esbuild.js",
+    "build": "node esbuild.js ",
     "release": "node release.js"
   },
   "repository": {

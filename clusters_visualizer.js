@@ -18,6 +18,31 @@ export async function build_html(cluster_groups, opts = {}) {
     <div class="sc-clusters-visualizer-view" style="width: 100%; height: 100%;">
       <div class="sc-top-bar">
         <div class="sc-visualizer-actions">
+          // create new cluster - 3 step - select + select centers
+          <button class="sc-create-new-cluster" aria-label="Create a new cluster">
+            ${this.get_icon_html?.('refresh-cw') || '⟳'}
+          </button>
+          <button class="sc-move-to-cluster" aria-label="Create a new cluster">
+            ${this.get_icon_html?.('refresh-cw') || '⟳'}
+          </button>
+          <button class="sc-move-to-center" aria-label="Move node(s) to cluster center">
+            ${this.get_icon_html?.('refresh-cw') || '⟳'}
+          </button>
+          <button class="sc-move-to-cluster" aria-label="Move node(s) to cluster">
+            ${this.get_icon_html?.('refresh-cw') || '⟳'}
+          </button>
+          <button class="sc-remove-from" aria-label="Remove node(s) from clusters">
+            ${this.get_icon_html?.('refresh-cw') || '⟳'}
+          </button>
+               <button class="sc-remove-from-center" aria-label="Remove from cluster center">
+            ${this.get_icon_html?.('refresh-cw') || '⟳'}
+          </button>
+          <button class="sc-undo-action" aria-label="Undo last action">
+            ${this.get_icon_html?.('refresh-cw') || '⟳'}
+          </button>
+          <button class="sc-rebuild" aria-label="Rebuild clusters">
+            ${this.get_icon_html?.('layers') || 'Rebuild'}
+          </button>
           <button class="sc-refresh" aria-label="Refresh clusters visualization">
             ${this.get_icon_html?.('refresh-cw') || '⟳'}
           </button>
@@ -46,12 +71,14 @@ export async function build_html(cluster_groups, opts = {}) {
  */
 export async function render(cluster_groups, opts = {}) {
   console.log('render', cluster_groups);
+  console.log('hello world');
   // const plugin_class = cluster_groups.env.smart_visualizer_plugin;
   const cluster_group = Object.values(cluster_groups.items)[0];
   if(!cluster_group) return this.create_doc_fragment('<div>No cluster group found!</div>');
   const snapshot = await cluster_group.get_snapshot(Object.values(cluster_groups.env.smart_sources.items));
   const {clusters, members} = snapshot;
   console.log('clusters', clusters);
+  console.log('members', members);
 
   // 1. Build top-level HTML
   const html = await build_html.call(this, cluster_groups, opts);
@@ -64,122 +91,87 @@ export async function render(cluster_groups, opts = {}) {
   svgEl.setAttribute('viewBox', `0 0 ${width} ${height}`);
 
   // 3. Construct data arrays for cluster center nodes + member nodes
-  const clusterArray = Object.values(clusters.items);
+  // const clusterArray = Object.values(clusters.items);
   const nodes = [];
   const links = [];
   const nodeMap = {};
-
+  // const clusterArray = clusters;
   // Each cluster is a node
-  clusterArray.forEach((cluster, i) => {
+   // -- Create a node for each cluster
+   clusters.forEach((cluster, i) => {
+    const cKey = cluster.data.key; // e.g. "1736664608646-0"
     const cNode = {
-      id: cluster.key,       // e.g. "cluster_1"
+      id: cKey,
       type: 'cluster',
-      cluster: cluster,
-      x: width / 2 + (i * 30 - 50),
-      y: height / 2,
       color: '#926ec9',
-      radius: 20
+      radius: 20,
+      cluster // store the original object if needed
     };
-    nodeMap[cluster.key] = cNode;
+    nodeMap[cKey] = cNode;
     nodes.push(cNode);
   });
 
-  // Create cluster-to-cluster links based on top-2 cos_sim of group_vec
-  const cluster_links = [];
-
-  // For each cluster cA, compute sim to others, sort descending, take top 2
-  for (let i = 0; i < clusterArray.length; i++) {
-    const cA = clusterArray[i];
-    if (!cA.group_vec) continue;
-
-    // Gather sims with all other clusters
-    const neighbors = [];
-    for (let j = 0; j < clusterArray.length; j++) {
-      if (i === j) continue;
-      const cB = clusterArray[j];
-      if (!cB.group_vec) continue;
-
-      const sim = cos_sim(cA.group_vec, cB.group_vec); // typically in [0..1]
-      neighbors.push({ cB, sim });
+  // -- Create a node for each member and link it to any cluster with score >= 0.6
+  members.forEach((member) => {
+    // The member's own label:
+    const memberLabel = member.item?.data?.key || 'unknown-member';
+    
+    // Create the node for this member (if not already created)
+    if (!nodeMap[memberLabel]) {
+      nodeMap[memberLabel] = {
+        id: memberLabel,
+        type: 'member',
+        color: '#7c8594',
+        radius: 7,
+        source: member.item  // store the SmartSource reference
+      };
+      nodes.push(nodeMap[memberLabel]);
     }
 
-    // Sort neighbors by descending sim
-    neighbors.sort((a, b) => b.sim - a.sim);
-
-    // Take top 2
-    const topNeighbors = neighbors.slice(0, 2);
-
-    // Construct links
-    topNeighbors.forEach(({ cB, sim }) => {
-      // distance = baseDist * (1 - sim) + offset
-      const distance = 100 * (1 - sim) + 30;
-
-      cluster_links.push({
-        source: cA.key,
-        target: cB.key,
-        sim,
-        stroke: '#a581d4',
-        distance
-      });
-    });
-  }
-
-  // normalize score to [0..1]
-  const nearest_members_per_cluster = {};
-  for (let c of clusterArray) {
-    const results = await c.get_nearest_members();
-    const min_cluster_score = Math.min(...results.map(r => r.score)) + 0.01;
-    const max_cluster_score = Math.max(...results.map(r => r.score)) - 0.01;
-    nearest_members_per_cluster[c.key] = { results, min_cluster_score, max_cluster_score };
-  }
-  const min_score = Math.min(...Object.values(nearest_members_per_cluster).map(r => r.min_cluster_score));
-  const max_score = Math.max(...Object.values(nearest_members_per_cluster).map(r => r.max_cluster_score));
-
-  // For each cluster, retrieve its members
-  for (let c of clusterArray) {
-    const results = nearest_members_per_cluster[c.key].results;
-    results.forEach((result) => {
-      result.score = (result.score - min_score) / (max_score - min_score);
-      const srcKey = result.item.key;
-      if (!nodeMap[srcKey]) {
-        nodeMap[srcKey] = {
-          id: srcKey,          // e.g. "my_source.md"
-          type: 'source',
-          source: result.item, // reference to the SmartSource
-          color: '#7c8594',
-          radius: 7
-        };
-        nodes.push(nodeMap[srcKey]);
+    // For each cluster in member.clusters, link if above threshold
+    Object.entries(member.clusters).forEach(([clusterId, clusterData]) => {
+      const { score } = clusterData;
+      if (score >= 0.6) {
+        // Make sure the cluster node actually exists
+        if (nodeMap[clusterId]) {
+          console.log('link score: ', score);
+          links.push({
+            source: clusterId,
+            target: memberLabel,
+            score,
+            stroke: '#4c7787'
+          });
+        }
       }
-      links.push({
-        source: c.key,
-        target: srcKey,
-        score: result.score,
-        stroke: '#4c7787'
-      });
     });
-  }
+  });
 
-  // Combine the two link sets (cluster-to-cluster, and cluster-to-member)
-  const all_links = [...links, ...cluster_links];
+
+  // 1. Find min/max score
+  const allScores = links
+  .filter(link => typeof link.score === 'number')
+  .map(link => link.score);
+  const minScore = d3.min(allScores) ?? 0.6;
+  const maxScore = d3.max(allScores) ?? 1.0;
+
+  // 2. Create a scale for link distances
+  const distanceScale = d3.scaleLinear()
+  .domain([minScore, maxScore])
+  .range([220, 80]) // higher score => smaller distance
+  .clamp(true);
 
   // 4. Force simulation
   const simulation = d3.forceSimulation(nodes)
     .force('charge', d3.forceManyBody().strength(-100))
     .force('center', d3.forceCenter(width / 2, height / 2))
-    .force('link', d3.forceLink(all_links).id(d => d.id)
-      .distance(link => {
-        // For cluster-cluster links, we have a 'distance' property
-        if (typeof link.distance === 'number') return link.distance;
-        // Else assume cluster-member link
-        // Original approach: distance = 220 - (link.score * 150)
-        if (typeof link.score === 'number') {
-          return 220 - (link.score * 150);
-        }
-        // fallback
-        return 200;
-      })
-    )
+    .force('link', d3.forceLink(links)
+    .id(d => d.id)
+    .distance(link => {
+      if (typeof link.distance === 'number') return link.distance;
+      if (typeof link.score === 'number') return distanceScale(link.score);
+      return 200;
+    })
+  )
     .on('tick', ticked);
 
   // 5. Build the D3 node & link selections
@@ -201,7 +193,7 @@ export async function render(cluster_groups, opts = {}) {
   const linkSelection = container_g.append('g')
     .attr('class', 'sc-cluster-links')
     .selectAll('line')
-    .data(all_links)
+    .data(links)
     .enter()
     .append('line')
     .attr('stroke', d => d.stroke || '#cccccc')
@@ -224,13 +216,16 @@ export async function render(cluster_groups, opts = {}) {
     )
     .on('click', (event, d) => {
       if (d.type === 'cluster') {
-        console.log(`Clicked cluster: ${d.id}`);
+        // console.log(`Clicked cluster: ${d.id}`);
       } else if (d.type === 'source') {
+        // console.log('node clicked: ', d.id)
         // Attempt to open note if the environment or plugin supports it
         d.source?.env?.plugin?.open_note?.(d.source.key, event);
       }
     })
     .on('mouseover', (event, d) => {
+      d3.select(event.currentTarget).style('cursor', 'pointer'); // Set cursor to pointer
+
       // Only show the label for the hovered node
       labelSelection
         .filter(ld => ld.id === d.id)
@@ -238,6 +233,8 @@ export async function render(cluster_groups, opts = {}) {
         .style('opacity', 1);
     })
     .on('mouseout', (event, d) => {
+      d3.select(event.currentTarget).style('cursor', 'default'); // Reset cursor
+
       // Hide the label again when not hovered
       labelSelection
         .filter(ld => ld.id === d.id)
@@ -257,8 +254,15 @@ export async function render(cluster_groups, opts = {}) {
     .attr('text-anchor', 'middle')
     .style('opacity', 0)
     .text(d => {
-      if (d.type === 'cluster') return d.id;
-      if (d.type === 'source') return d.source?.key || d.id;
+       // Clusters: show their cluster.data.key
+       if (d.type === 'cluster') {
+        return d.cluster?.data?.key || d.id;
+      }
+      // Members: show member.item.data.key
+      if (d.type === 'member') {
+        return d.source?.data?.key || d.id;
+      }
+      // Fallback
       return d.id;
     });
 
@@ -282,15 +286,25 @@ export async function render(cluster_groups, opts = {}) {
 
   // 8. Drag handlers
   function onDragStart(event, d) {
+   // Turn off the zoom handling on the SVG while we drag
+  //  svg.on('.zoom', null);
+
+  console.log('Dragging node:', d.id, event.x, event.y);
+
     if (!event.active) simulation.alphaTarget(0.3).restart();
+    
     d.fx = d.x;
     d.fy = d.y;
   }
   function onDrag(event, d) {
+    // This line will prevent the zoom behavior from taking over
+
     d.fx = event.x;
     d.fy = event.y;
   }
   function onDragEnd(event, d) {
+
+
     if (!event.active) simulation.alphaTarget(0);
     d.fx = null;
     d.fy = null;
