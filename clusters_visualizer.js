@@ -21,6 +21,21 @@ export async function build_html(cluster_groups, opts = {}) {
          <button class="sc-pin" aria-label="Pin network">
             ${this.get_icon_html?.('pin') || 'Hi'}
           </button>
+         <button class="sc-create-cluster" aria-label="Create new cluster from selection">
+            ${this.get_icon_html?.('group') || 'group'}
+          </button>
+          <button class="sc-remove-cluster" aria-label="Remove node(s) from cluster(s) and recluster">
+            ${this.get_icon_html?.('ungroup') || 'ungroup'}
+          </button>
+          <button class="sc-add-to-cluster" aria-label="Merge node(s) to cluster">
+            ${this.get_icon_html?.('combine') || 'combine'}
+          </button>
+          <button class="sc-add-to-cluster-center" aria-label="Move node(s) to cluster center">
+            ${this.get_icon_html?.('badge-plus') || 'plus'}
+          </button>
+          <button class="sc-remove-cluster-center" aria-label="Remove node(s) from cluster center">
+            ${this.get_icon_html?.('badge-minus') || 'minus'}
+          </button>
           <button class="sc-refresh" aria-label="Refresh clusters visualization">
             ${this.get_icon_html?.('refresh-cw') || '⟳'}
           </button>
@@ -81,6 +96,7 @@ function updateSelection(isShiftKey) {
     inBox.forEach((node) => selectedNodes.add(node));
   }
 }
+
 export async function render(cluster_groups, opts = {}) {
   const debug = !!opts.debug;
   if (debug) console.log('render() called with:', cluster_groups);
@@ -116,6 +132,11 @@ export async function render(cluster_groups, opts = {}) {
 
   // Grab the "pin" button
   const pinBtn = frag.querySelector('.sc-pin');
+  const createClusterBtn = frag.querySelector('.sc-create-cluster');
+  const addToClusterBtn = frag.querySelector('.sc-add-to-cluster');
+  const addToClusterCenterBtn = frag.querySelector('.sc-add-to-cluster-center');
+  const removeFromClusterCenterBtn = frag.querySelector('.sc-remove-cluster-center');
+  const removeClusterBtn = frag.querySelector('.sc-remove-cluster');
 
   // Build node & link arrays
   const nodes = [];
@@ -227,51 +248,88 @@ export async function render(cluster_groups, opts = {}) {
 
   d3.select(canvas_el).call(zoom_behavior);
 
-  // --- DRAG Behavior ---
-   // --- DRAG Behavior ---
-   const drag_behavior = d3.drag()
-   .subject((event) => {
-     const [mx, my] = d3.pointer(event, canvas_el);
-     const [sx, sy] = transform.invert([mx, my]);
-     return findNodeAt(sx, sy, nodes) || null;
-   })
-   .on('start', (event) => {
+  // Keep some state for dragging
+  let dragStartPos = null;  // The [x,y] of the pointer at drag start
+  let nodeStartPositions = new Map(); 
+  // nodeStartPositions will map each *selected* node -> { x, y }
+
+  const drag_behavior = d3.drag()
+  .subject((event) => {
+    // The node that was clicked, if any
+    const [mx, my] = d3.pointer(event, canvas_el);
+    const [sx, sy] = transform.invert([mx, my]);
+    return findNodeAt(sx, sy, nodes) || null;
+  })
+  .on('start', (event) => {
     const node = event.subject;
     if (!node) return;
-    
-    // “Unfix” just this node if pinned, so it can move:
+
+    // "Unfix" just in case pinned is on
     if (pinned) {
       node.fx = null;
       node.fy = null;
     }
-    // Standard reheat for dragging:
+
+    // Standard reheat for dragging
     if (!event.active) simulation.alphaTarget(0.3).restart();
+
+    // Store the initial pointer position
+    dragStartPos = [event.x, event.y];
+
+    // If the *clicked* node is in the selection, prepare to move them all
+    // Otherwise, we might drag only this node.
+    if (selectedNodes.has(node)) {
+      // For each selected node, remember its (x, y) at drag-start
+      nodeStartPositions.clear();
+      selectedNodes.forEach((sn) => {
+        nodeStartPositions.set(sn, { x: sn.x, y: sn.y });
+      });
+    } else {
+      // Single node drag fallback:
+      nodeStartPositions.clear();
+      nodeStartPositions.set(node, { x: node.x, y: node.y });
+    }
   })
   .on('drag', (event) => {
-    const node = event.subject;
-    if (!node) return;
-    
-    // This sets the node’s position under simulation’s forces
-    // but we also forcibly guide it to the pointer.
-    node.fx = event.x;
-    node.fy = event.y;
+    // If there's no reference pointer, do nothing
+    if (!dragStartPos) return;
+
+    // How far has the pointer moved since drag start?
+    const dx = event.x - dragStartPos[0];
+    const dy = event.y - dragStartPos[1];
+
+    // Move every node that was stored in nodeStartPositions
+    nodeStartPositions.forEach((startPos, n) => {
+      // For a standard D3 force-sim, setting fx/fy positions the node.
+      n.fx = startPos.x + dx;
+      n.fy = startPos.y + dy;
+    });
   })
   .on('end', (event) => {
     const node = event.subject;
     if (!node) return;
-    
-    // If pinned, fix it again at the final drag location:
+
+    // Reset alpha to finish
+    if (!event.active) simulation.alphaTarget(0);
+
+    // If pinned, fix final positions. Otherwise release them
     if (pinned) {
-      node.fx = node.x;
-      node.fy = node.y;
-      simulation.alphaTarget(0);
+      nodeStartPositions.forEach((_, n) => {
+        n.fx = n.x;
+        n.fy = n.y;
+      });
     } else {
-      // Let it go again
-      node.fx = null;
-      node.fy = null;
-      if (!event.active) simulation.alphaTarget(0);
+      nodeStartPositions.forEach((_, n) => {
+        n.fx = null;
+        n.fy = null;
+      });
     }
+
+    // Cleanup
+    dragStartPos = null;
+    nodeStartPositions.clear();
   });
+
 
   d3.select(canvas_el).call(drag_behavior);
 
@@ -402,6 +460,27 @@ export async function render(cluster_groups, opts = {}) {
       pinBtn.innerHTML = this.get_icon_html?.('pin') ?? 'pin';
     }
   });
+
+  createClusterBtn?.addEventListener('click', () => {
+    console.log('Create new cluster from selection.  Available when any node(s) selected - can be nodes from different clusters and orphans - 2 step process - 2nd step is to select which node(s) to be center of new cluster');
+  });
+
+  addToClusterBtn?.addEventListener('click', () => {
+    console.log('Move node(s) to cluster.  Available when any node(s) selected - can be nodes from different clusters and orphans - 2 step process - 2nd step is to select which cluster to add node(s) to');
+  });
+
+  addToClusterCenterBtn?.addEventListener('click', () => {
+    console.log('Move node(s) to cluster center. Available only for nodes that are selected + in the same cluster + not in center, unless node(s) drag and dropped into center');
+  });
+
+  removeFromClusterCenterBtn?.addEventListener('click', () => {
+    console.log('Remove node(s) from cluster center. Available only for nodes that are selected + in cluster center - still keeps them in their respective cluster');
+  });
+
+  removeClusterBtn?.addEventListener('click', () => {
+    console.log('Remove node(s) from cluster(s) and recluster. Available when any node(s) are selected + in cluster(s) - get prev snapshot on rerender to show were reclustered in UI ');
+  });
+
 
   function ticked() {
     context.clearRect(0, 0, width, height);
