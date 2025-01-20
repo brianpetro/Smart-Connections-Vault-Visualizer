@@ -18,6 +18,9 @@ export async function build_html(cluster_groups, opts = {}) {
     <div class="sc-clusters-visualizer-view" style="width: 100%; height: 100%;">
       <div class="sc-top-bar">
         <div class="sc-visualizer-actions">
+         <button class="sc-pin" aria-label="Pin network">
+            ${this.get_icon_html?.('pin') || 'Hi'}
+          </button>
           <button class="sc-refresh" aria-label="Refresh clusters visualization">
             ${this.get_icon_html?.('refresh-cw') || '⟳'}
           </button>
@@ -30,24 +33,57 @@ export async function build_html(cluster_groups, opts = {}) {
         </div>
       </div>
       <div class="sc-visualizer-content" style="width: 100%; height: 100%;">
-        <svg class="clusters-visualizer-svg" width="100%" height="100%" style="pointer-events: all"></svg>
+      <canvas class="clusters-visualizer-canvas" width="1000px" height="1000px" 
+              style="border:1px solid #333; display:block;">
+      </canvas>
       </div>
     </div>
   `;
 }
 
-/**
- * Renders the D3 clusters visualization.
- * @param {Object} cluster_groups - The SmartClusters collection instance
- * @param {Object} [opts={}]
- * @param {boolean} [opts.debug=false] - If true, logs debug info to console.
- * @param {number} [opts.max_alpha_iterations=300] - Limits alpha iterations for simulation.
- * @returns {Promise<HTMLElement>} The rendered fragment
- */
+// HELPER: find node at the given simulation coords (sx, sy) within radius
+function findNodeAt(sx, sy, nodes) {
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    const node = nodes[i];
+    const dx = sx - node.x;
+    const dy = sy - node.y;
+    if (dx * dx + dy * dy <= node.radius * node.radius) {
+      return node;
+    }
+  }
+  return null;
+}
+
+function updateSelection(isShiftKey) {
+  if (!selectionStart || !selectionEnd) return;
+
+  const [x0, y0] = selectionStart;
+  const [x1, y1] = selectionEnd;
+  const minX = Math.min(x0, x1);
+  const maxX = Math.max(x0, x1);
+  const minY = Math.min(y0, y1);
+  const maxY = Math.max(y0, y1);
+
+  // Gather the nodes in the box
+  const inBox = [];
+  nodes.forEach((node) => {
+    const { x, y } = node;
+    if (x >= minX && x <= maxX && y >= minY && y <= maxY) {
+      inBox.push(node);
+    }
+  });
+
+  // If SHIFT is pressed, add them to existing selection:
+  if (isShiftKey) {
+    inBox.forEach((node) => selectedNodes.add(node));
+  } else {
+    selectedNodes.clear();
+    inBox.forEach((node) => selectedNodes.add(node));
+  }
+}
 export async function render(cluster_groups, opts = {}) {
-  console.log('render() called with cluster_groups:', cluster_groups);
   const debug = !!opts.debug;
-  if (debug) console.log('render() called with cluster_groups:', cluster_groups);
+  if (debug) console.log('render() called with:', cluster_groups);
 
   const cluster_group = Object.values(cluster_groups.items)[0];
   if (!cluster_group) {
@@ -64,22 +100,24 @@ export async function render(cluster_groups, opts = {}) {
     console.log('members:', members);
   }
 
-  // 1. Build top-level HTML and fragment
+  // Build top-level HTML with <canvas> + toolbar
   const html = await build_html.call(this, cluster_groups, opts);
   const frag = this.create_doc_fragment(html);
 
-  const svg_el = frag.querySelector('.clusters-visualizer-svg');
-  if (!svg_el) {
-    if (debug) console.warn('No SVG element found in the fragment.');
+  // Grab the canvas context
+  const canvas_el = frag.querySelector('.clusters-visualizer-canvas');
+  if (!canvas_el) {
+    if (debug) console.warn('No <canvas> element found!');
     return frag;
   }
+  const context = canvas_el.getContext('2d');
+  const width = canvas_el.width || 800;
+  const height = canvas_el.height || 600;
 
-  // Set viewBox
-  const width = 800;
-  const height = 600;
-  svg_el.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  // Grab the "pin" button
+  const pinBtn = frag.querySelector('.sc-pin');
 
-  // 2. Construct nodes and links
+  // Build node & link arrays
   const nodes = [];
   const links = [];
   const node_map = {};
@@ -91,7 +129,7 @@ export async function render(cluster_groups, opts = {}) {
       type: 'cluster',
       color: '#926ec9',
       radius: 20,
-      cluster
+      cluster,
     };
     node_map[c_key] = c_node;
     nodes.push(c_node);
@@ -105,12 +143,10 @@ export async function render(cluster_groups, opts = {}) {
         type: 'member',
         color: '#7c8594',
         radius: 7,
-        source: member.item
+        source: member.item,
       };
       nodes.push(node_map[member_key]);
     }
-
-    // link if above threshold
     Object.entries(member.clusters).forEach(([cl_id, cl_data]) => {
       const { score } = cl_data;
       if (score >= 0.6 && node_map[cl_id]) {
@@ -118,149 +154,318 @@ export async function render(cluster_groups, opts = {}) {
           source: cl_id,
           target: member_key,
           score,
-          stroke: '#4c7787'
+          stroke: '#4c7787',
         });
       }
     });
   });
 
-  // 3. Force simulation
-  const all_scores = links.filter(link => typeof link.score === 'number').map(link => link.score);
+  // Distance scaling
+  const all_scores = links
+    .filter((l) => typeof l.score === 'number')
+    .map((l) => l.score);
   const min_score = d3.min(all_scores) ?? 0.6;
   const max_score = d3.max(all_scores) ?? 1.0;
-
-  const distance_scale = d3.scaleLinear()
+  const distance_scale = d3
+    .scaleLinear()
     .domain([min_score, max_score])
     .range([220, 80])
     .clamp(true);
 
-  // Lower repulsion for large sets
+  // Build the simulation
   const charge_strength = nodes.length > 200 ? -60 : -100;
-  const simulation = d3.forceSimulation(nodes)
+  const simulation = d3
+    .forceSimulation(nodes)
     .force('charge', d3.forceManyBody().strength(charge_strength))
-    .force('center', d3.forceCenter(width / 2, height / 2))
     .force(
       'link',
-      d3.forceLink(links)
-        .id(d => d.id)
-        .distance(link => {
-          if (typeof link.score === 'number') {
-            return distance_scale(link.score);
-          }
-          return 200;
-        })
+      d3
+        .forceLink(links)
+        .id((d) => d.id)
+        .distance((link) =>
+          typeof link.score === 'number' ? distance_scale(link.score) : 200
+        )
     )
-    .stop(); // We'll step manually below
+    .on('tick', ticked);
 
-  // Step the simulation up to a max alpha or until stable
-  const max_iter = opts.max_alpha_iterations || 300;
+  // Pre-run to stabilize
   let i = 0;
-  while (simulation.alpha() > 0.01 && i < max_iter) {
+  const max_iter = opts.max_alpha_iterations || 100;
+  while (simulation.alpha() > 0.1 && i < max_iter) {
     simulation.tick();
     i++;
   }
-  if (debug) console.log(`Simulation stopped after ${i} iterations with alpha=${simulation.alpha()}`);
+  simulation.alphaTarget(0).restart();
+  if (debug) {
+    console.log(`Pre-run after ${i} ticks, alpha=${simulation.alpha()}`);
+  }
 
-  // 4. Build D3 structure
-  const svg = d3.select(svg_el);
-  svg.selectAll('*').remove();
+  // We'll keep track of current transform for panning/zoom
+  let transform = d3.zoomIdentity;
 
-  const container_g = svg.append('g').attr('class', 'sc-clusters-visualizer-container');
+  // --- PINNED STATE ---
+  let pinned = false; // track whether the network is pinned
 
-  const zoom_behavior = d3.zoom()
+  // --- ZOOM Behavior ---
+  const zoom_behavior = d3
+    .zoom()
     .scaleExtent([0.1, 10])
+    .filter((event) => {
+      // Allow zooming/panning only when Shift key is not pressed
+      if (event.shiftKey) return false;
+  
+      // If pointer is over a node, skip zoom
+      const [mx, my] = d3.pointer(event, canvas_el);
+      const [sx, sy] = transform.invert([mx, my]);
+      const node = findNodeAt(sx, sy, nodes);
+      return !node;
+    })
     .on('zoom', (event) => {
-      container_g.attr('transform', event.transform);
-    });
-  svg.call(zoom_behavior);
-
-  const link_selection = container_g.append('g')
-    .attr('class', 'sc-cluster-links')
-    .selectAll('line')
-    .data(links)
-    .enter()
-    .append('line')
-    .attr('stroke', d => d.stroke || '#cccccc')
-    .attr('stroke-width', 1.2)
-    .attr('x1', d => d.source.x)
-    .attr('y1', d => d.source.y)
-    .attr('x2', d => d.target.x)
-    .attr('y2', d => d.target.y);
-
-  const node_selection = container_g.append('g')
-    .attr('class', 'sc-cluster-nodes')
-    .selectAll('circle')
-    .data(nodes)
-    .enter()
-    .append('circle')
-    .attr('r', d => d.radius)
-    .attr('fill', d => d.color)
-    .attr('cx', d => d.x)
-    .attr('cy', d => d.y)
-    .call(d3.drag()
-      .on('start', on_drag_start)
-      .on('drag', on_drag)
-      .on('end', on_drag_end)
-    );
-
-  // Show/hide labels on hover
-  const label_selection = container_g.append('g')
-    .attr('class', 'sc-cluster-node-labels')
-    .selectAll('text')
-    .data(nodes)
-    .enter()
-    .append('text')
-    .attr('x', d => d.x)
-    .attr('y', d => d.y - (d.radius + 2))
-    .attr('font-size', 10)
-    .attr('fill', '#cccccc')
-    .attr('text-anchor', 'middle')
-    .style('opacity', 0)
-    .text(d => {
-      if (d.type === 'cluster') {
-        return d.cluster?.data?.key || d.id;
-      }
-      if (d.type === 'member') {
-        return d.source?.data?.key || d.id;
-      }
-      return d.id;
+      transform = event.transform;
+      ticked(); // re-draw
     });
 
-  node_selection
-    .on('click', (event, d) => {
-      if (debug) console.log('Node clicked:', d.id);
-      if (d.type === 'member') {
-        d.source?.env?.plugin?.open_note?.(d.source.key, event);
+  d3.select(canvas_el).call(zoom_behavior);
+
+  // --- DRAG Behavior ---
+   // --- DRAG Behavior ---
+   const drag_behavior = d3.drag()
+   .subject((event) => {
+     const [mx, my] = d3.pointer(event, canvas_el);
+     const [sx, sy] = transform.invert([mx, my]);
+     return findNodeAt(sx, sy, nodes) || null;
+   })
+   .on('start', (event) => {
+    const node = event.subject;
+    if (!node) return;
+    
+    // “Unfix” just this node if pinned, so it can move:
+    if (pinned) {
+      node.fx = null;
+      node.fy = null;
+    }
+    // Standard reheat for dragging:
+    if (!event.active) simulation.alphaTarget(0.3).restart();
+  })
+  .on('drag', (event) => {
+    const node = event.subject;
+    if (!node) return;
+    
+    // This sets the node’s position under simulation’s forces
+    // but we also forcibly guide it to the pointer.
+    node.fx = event.x;
+    node.fy = event.y;
+  })
+  .on('end', (event) => {
+    const node = event.subject;
+    if (!node) return;
+    
+    // If pinned, fix it again at the final drag location:
+    if (pinned) {
+      node.fx = node.x;
+      node.fy = node.y;
+      simulation.alphaTarget(0);
+    } else {
+      // Let it go again
+      node.fx = null;
+      node.fy = null;
+      if (!event.active) simulation.alphaTarget(0);
+    }
+  });
+
+  d3.select(canvas_el).call(drag_behavior);
+
+  // For hover state
+  let hoveredNode = null;
+
+  // For selection (if you have that from previous snippet)
+  const selectedNodes = new Set();
+
+  let isSelecting = false;
+  let selectionStart = null;
+  let selectionEnd = null;
+
+  d3.select(canvas_el)
+  .on('mousedown', (event) => {
+    if (event.shiftKey) {
+      isSelecting = true;
+      const [mx, my] = d3.pointer(event, canvas_el);
+      selectionStart = transform.invert([mx, my]);
+      selectionEnd = selectionStart;
+      ticked(); // Redraw to show the selection box
+    }
+  })
+    .on('mousemove', (event) => {
+
+      if (isSelecting) {
+        const [mx, my] = d3.pointer(event, canvas_el);
+        selectionEnd = transform.invert([mx, my]);
+        ticked(); // Redraw to update the selection box
+      } else {
+        const [mx, my] = d3.pointer(event, canvas_el);
+        const [sx, sy] = transform.invert([mx, my]);
+        hoveredNode = findNodeAt(sx, sy, nodes);
+        canvas_el.style.cursor = hoveredNode ? 'pointer' : 'default';
+        ticked();
+      }
+     
+    })
+    .on('mouseup',(event) => {
+      if (isSelecting) {
+        isSelecting = false;
+        updateSelection(event.shiftKey); // pass shift info
+        ticked(); // Redraw to reflect selected nodes
       }
     })
-    .on('mouseover', (event, d) => {
-      d3.select(event.currentTarget).style('cursor', 'pointer');
-      label_selection
-        .filter(ld => ld.id === d.id)
-        .transition()
-        .style('opacity', 1);
-    })
-    .on('mouseout', (event, d) => {
-      d3.select(event.currentTarget).style('cursor', 'default');
-      label_selection
-        .filter(ld => ld.id === d.id)
-        .transition()
-        .style('opacity', 0);
+    .on('click', (event) => {
+      if (isSelecting) return; // or check a "didBoxSelect" boolean 
+
+      const [mx, my] = d3.pointer(event, canvas_el);
+    const [sx, sy] = transform.invert([mx, my]);
+    const clickedNode = findNodeAt(sx, sy, nodes);
+
+    if (event.shiftKey) {
+      // Multi-select mode
+      if (clickedNode) {
+        if (selectedNodes.has(clickedNode)) {
+          selectedNodes.delete(clickedNode);
+        } else {
+          selectedNodes.add(clickedNode);
+        }
+      }
+    } else {
+      // Single-select mode
+      selectedNodes.clear();
+      if (clickedNode) {
+        selectedNodes.add(clickedNode);
+      }
+    }
+    ticked(); // Redraw to reflect selection changes
+  });
+
+  function updateSelection() {
+  if (!selectionStart || !selectionEnd) return;
+
+  const [x0, y0] = selectionStart;
+  const [x1, y1] = selectionEnd;
+
+  // Ensure we treat x0,y0 as the "top-left" and x1,y1 as the "bottom-right"
+  const minX = Math.min(x0, x1);
+  const maxX = Math.max(x0, x1);
+  const minY = Math.min(y0, y1);
+  const maxY = Math.max(y0, y1);
+
+  // If you do *not* want to allow multi-select with bounding box by default:
+  // selectedNodes.clear();
+  //
+  // Or if you *do* want SHIFT+Drag to add to existing selection, handle that logic here.
+  // E.g. if (multiSelectMode) { do union } else { new selection }.
+  // For simplicity, let's do a "fresh" selection each time:
+
+  selectedNodes.clear();
+
+  // Check each node
+  nodes.forEach((node) => {
+    const { x, y } = node;
+    if (x >= minX && x <= maxX && y >= minY && y <= maxY) {
+      selectedNodes.add(node);
+    }
+  });
+}
+
+   // --- PIN BUTTON CLICK HANDLER ---
+   pinBtn?.addEventListener('click', () => {
+    pinned = !pinned;
+  
+    if (pinned) {
+      // Instead of simulation.stop():
+      simulation.alpha(0).alphaTarget(0);
+      // fix all nodes:
+      nodes.forEach((n) => {
+        n.fx = n.x;
+        n.fy = n.y;
+        // zero out velocity so they don’t keep drifting
+        n.vx = 0;
+        n.vy = 0;
+      });
+      pinBtn.innerHTML = this.get_icon_html?.('pin-off') ?? 'pin-off';
+    } else {
+      // Unpin:
+      nodes.forEach((n) => {
+        n.fx = null;
+        n.fy = null;
+        n.vx = 0;
+        n.vy = 0;
+      });
+      // "Reheat" the simulation
+      simulation.alpha(0.8).restart();
+      pinBtn.innerHTML = this.get_icon_html?.('pin') ?? 'pin';
+    }
+  });
+
+  function ticked() {
+    context.clearRect(0, 0, width, height);
+    context.save();
+    context.translate(transform.x, transform.y);
+    context.scale(transform.k, transform.k);
+
+    // Draw links
+    links.forEach((link) => {
+      context.beginPath();
+      context.strokeStyle = link.stroke || '#ccc';
+      context.lineWidth = 1.2;
+      context.moveTo(link.source.x, link.source.y);
+      context.lineTo(link.target.x, link.target.y);
+      context.stroke();
     });
 
-  // 5. Drag handlers
-  function on_drag_start(event, d) {
-    if (debug) console.log('on_drag_start', d.id, event.x, event.y);
-    d.fx = d.x;
-    d.fy = d.y;
-  }
-  function on_drag(event, d) {
-    d.fx = event.x;
-    d.fy = event.y;
-  }
-  function on_drag_end(event, d) {
-    d.fx = null;
-    d.fy = null;
+    // Draw nodes
+    nodes.forEach((node) => {
+      context.beginPath();
+      context.fillStyle = node.color;
+      context.arc(node.x, node.y, node.radius, 0, 2 * Math.PI);
+      context.fill();
+
+      // If you have multi-select or single selection:
+      if (selectedNodes.has(node)) {
+        context.lineWidth = 3;
+        context.strokeStyle = '#ff9800'; // highlight color
+        context.stroke();
+      }
+    });
+
+     // Draw selection box
+      if (isSelecting && selectionStart && selectionEnd) {
+        context.beginPath();
+        context.strokeStyle = '#009688'; // Selection box color
+        context.lineWidth = 1.5;
+        const [x0, y0] = selectionStart;
+        const [x1, y1] = selectionEnd;
+        context.rect(x0, y0, x1 - x0, y1 - y0);
+        context.stroke();
+      }
+
+
+    // Hover label
+    if (hoveredNode) {
+      context.beginPath();
+      context.fillStyle = '#ccc';
+      context.font = '10px sans-serif';
+      context.textAlign = 'center';
+      let labelText = hoveredNode.id;
+      if (hoveredNode.type === 'cluster') {
+        labelText = hoveredNode.cluster?.data?.key || hoveredNode.id;
+      } else if (hoveredNode.type === 'member') {
+        labelText = hoveredNode.source?.data?.key || hoveredNode.id;
+      }
+      context.fillText(
+        labelText,
+        hoveredNode.x,
+        hoveredNode.y - hoveredNode.radius - 4
+      );
+    }
+
+    context.restore();
   }
 
   return await post_process.call(this, cluster_groups, frag, opts);
