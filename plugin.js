@@ -6,7 +6,7 @@
 
 import { Plugin } from "obsidian";
 import { wait_for_smart_env_then_init } from "obsidian-smart-env";
-import ajson_data_adapter from "../jsbrains/smart-collections/adapters/ajson_multi_file.js";
+import ajson_single_file_data_adapter from "../jsbrains/smart-collections/adapters/ajson_single_file.js";
 import { Clusters, Cluster } from "../jsbrains/smart-clusters/index.js";
 import { ClusterGroups, ClusterGroup } from "../jsbrains/smart-cluster-groups/index.js";
 import { ClustersVisualizerView } from "./clusters_visualizer.obsidian.js";
@@ -23,11 +23,11 @@ class SmartVisualizerPlugin extends Plugin {
     collections: {
       clusters: {
         class: Clusters,
-        data_adapter: ajson_data_adapter,
+        data_adapter: ajson_single_file_data_adapter,
       },
       cluster_groups: {
         class: ClusterGroups,
-        data_adapter: ajson_data_adapter,
+        data_adapter: ajson_single_file_data_adapter,
       }
     },
     item_types: {
