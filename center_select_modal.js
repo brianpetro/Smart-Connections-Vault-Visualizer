@@ -33,10 +33,22 @@ export class CenterSelectModal extends FuzzySuggestModal {
     // Insert usage instructions
     this.setInstructions([
       { command: 'Enter', purpose: 'Add to context' },
+      {
+        command: 'Ctrl+Enter',
+        purpose: 'Open visualizer using current selection'
+      },
       { command: 'Esc', purpose: 'Close' },
     ]);
 
     this.submit_btn_text = 'Select Cluster Centers';
+
+    // Keydown to handle Ctrl+Enter
+    this.inputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && Keymap.isModEvent(e)) {
+        e.preventDefault();
+        this.submit();
+      }
+    });
   }
   onOpen() {
     super.onOpen();
@@ -104,8 +116,11 @@ export class CenterSelectModal extends FuzzySuggestModal {
       setIcon(pill.createSpan({ cls: 'sc-selected-pill-icon' }), 'document');
     }
   }
-  submit() {
-    this.env.cluster_groups.create_group(this.selected_items);
+  async submit() {
+    await this.env.cluster_groups.create_group(this.selected_items);
+    this.close();
+    this.plugin.open_cluster_visualizer();
+    this.plugin.get_cluster_visualizer_view().render_view();
   }
 }
 

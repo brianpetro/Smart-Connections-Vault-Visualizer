@@ -52,7 +52,7 @@ class SmartVisualizerPlugin extends Plugin {
       id: "open-smart-visualizer-view",
       name: "Open Smart Visualizer View",
       callback: () => {
-        this.activate_view();
+        ClustersVisualizerView.open(this.app.workspace);
       },
     });
 
@@ -83,17 +83,14 @@ class SmartVisualizerPlugin extends Plugin {
     console.log("unloaded smart_visualizer_plugin");
   }
 
-  /**
-   * Ensures the Smart Visualizer view is shown.
-   */
-  async activate_view() {
-    let leaf = this.app.workspace.getLeavesOfType("smart-visualizer-view").first();
-    if (!leaf) {
-      leaf = this.app.workspace.getRightLeaf(false);
-      await leaf.setViewState({ type: "smart-visualizer-view" });
-    }
-    this.app.workspace.revealLeaf(leaf);
+  open_cluster_visualizer() {
+    ClustersVisualizerView.open(this.app.workspace);
   }
+
+  get_cluster_visualizer_view() {
+    return ClustersVisualizerView.get_view(this.app.workspace);
+  }
+
 }
 
 export default SmartVisualizerPlugin;
