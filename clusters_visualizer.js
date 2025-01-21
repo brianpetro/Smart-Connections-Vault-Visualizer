@@ -74,7 +74,7 @@ export async function render(cluster_groups, opts = {}) {
   const debug = !!opts.debug;
   if (debug) console.log('render() called with:', cluster_groups);
 
-  const cluster_group = Object.values(cluster_groups.items)[0];
+  const cluster_group = Object.values(cluster_groups.items).sort((a, b) => b.key.localeCompare(a.key))[0];
   if (!cluster_group) {
     return this.create_doc_fragment('<div>No cluster group found!</div>');
   }
@@ -413,8 +413,8 @@ requestAnimationFrame(() => {
       if (isSelecting) return; // or check a "didBoxSelect" boolean 
 
       const [mx, my] = d3.pointer(event, canvas_el);
-    const [sx, sy] = transform.invert([mx, my]);
-    const clickedNode = findNodeAt(sx, sy, nodes);
+      const [sx, sy] = transform.invert([mx, my]);
+      const clickedNode = findNodeAt(sx, sy, nodes);
 
     if (event.shiftKey) {
       // Multi-select mode
@@ -467,11 +467,21 @@ requestAnimationFrame(() => {
   });
 
   createClusterBtn?.addEventListener('click', async () => {
-    console.log('Create new cluster from selection.  Available when any node(s) selected - can be nodes from different clusters and orphans - 2 step process - 2nd step is to select which node(s) to be center of new cluster');
-    const cluster = await cluster_groups.env.clusters.create_or_update({ center: {[selectedNodes[0]]: {weight: 1}} });
-    const {new_cluster, new_cluster_group} = await cluster_groups.add_cluster(cluster);
+    // console.log('Create new cluster from selection.  Available when any node(s) selected - can be nodes from different clusters and orphans - 2 step process - 2nd step is to select which node(s) to be center of new cluster');
+    const center = Array.from(selectedNodes.values()).reduce((acc, node) => {
+      acc[node.source.key] = {weight: 1}; 
+      return acc;
+    }, {});
+    console.log('selectedNodes ', center);
+
+
+    const cluster = await cluster_group.env.clusters.create_or_update({ center });
+    console.log('cluster1', cluster);
+    const new_cluster = await cluster_group.add_cluster(cluster);
     console.log('new_cluster', new_cluster);
-    console.log('new_cluster_group', new_cluster_group);
+    if (typeof opts.refresh_view === 'function') {
+      opts.refresh_view();
+    }
   });
 
   addToClusterBtn?.addEventListener('click', () => {
@@ -639,7 +649,6 @@ export async function post_process(cluster_groups, frag, opts = {}) {
   const rebuild_btn = frag.querySelector('.sc-rebuild');
   if (rebuild_btn) {
     rebuild_btn.addEventListener('click', async () => {
-      await cluster_groups.build_groups();
       if (typeof opts.refresh_view === 'function') {
         opts.refresh_view();
       }
