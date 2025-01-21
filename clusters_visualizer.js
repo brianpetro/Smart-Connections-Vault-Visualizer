@@ -158,22 +158,33 @@ if (slider) {
   console.error('Slider element not found!');
 }
 function updateLinks(threshold) {
-  links.length = 0; // Clear existing links
+  const newLinks = []; // Create a temporary array for new links
 
   members.forEach((member) => {
     const member_key = member.item?.key || 'unknown-member';
     Object.entries(member.clusters).forEach(([cl_id, cl_data]) => {
       const { score } = cl_data;
       if (score >= threshold && node_map[cl_id]) {
-        links.push({
+        // Check if the link already exists in the current `links` array
+        const existingLink = links.find(
+          (link) => link.source.id === cl_id && link.target.id === member_key
+        );
+
+        // Preserve existing styling if the link already exists
+        newLinks.push({
           source: cl_id,
           target: member_key,
           score,
-          stroke: '#4c7787',
+          stroke: existingLink?.stroke || '#4c7787', // Preserve stroke color
+          currentAlpha: existingLink?.currentAlpha || 1, // Preserve alpha
         });
       }
     });
   });
+
+  // Replace the links array with the new set
+  links.length = 0; // Clear existing links
+  links.push(...newLinks); // Add the updated links
 
   // Restart the simulation with the updated links
   simulation.force(
