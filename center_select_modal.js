@@ -120,7 +120,7 @@ export class CenterSelectModal extends FuzzySuggestModal {
     await this.env.cluster_groups.create_group(this.selected_items);
     this.close();
     this.plugin.open_cluster_visualizer();
-    this.plugin.get_cluster_visualizer_view().render_view();
+    this.plugin.get_cluster_visualizer_view()?.render_view();
   }
 }
 
