@@ -46,6 +46,7 @@ export async function build_html(cluster_groups, opts = {}) {
             ${this.get_icon_html?.('help-circle') || '?'}
           </button>
         </div>
+       
       </div>
       <div class="sc-visualizer-content" style="width: 100%; height: 100%;">
       <canvas class="clusters-visualizer-canvas" width="100%" height="100%" 
@@ -89,6 +90,8 @@ export async function render(cluster_groups, opts = {}) {
     console.log('members:', members);
   }
 
+  
+
   // Build top-level HTML with <canvas> + toolbar
   const html = await build_html.call(this, cluster_groups, opts);
   const frag = this.create_doc_fragment(html);
@@ -121,6 +124,70 @@ requestAnimationFrame(() => {
   ticked(); // Draw
 });
 
+const slider_frag = await this.render_settings({
+  threshold: {
+    setting: 'threshold',
+    type: 'slider',
+    min: 0.6,
+    max: 1.0,
+    step: 0.01,
+    value: cluster_group.filters?.threshold || 0.6,
+  }
+}, {scope: cluster_group});
+const vis_actions = frag.querySelector('.sc-visualizer-actions');
+vis_actions.appendChild(slider_frag);
+
+// Find the slider and initialize event listeners
+const slider = slider_frag.querySelector('input[type="range"]'); // Locate the slider input
+const sliderValueDisplay = slider_frag.querySelector('.setting-item-description'); // Locate the display element
+
+if (slider) {
+  let debounceTimeout;
+
+  slider.addEventListener('input', () => {
+    clearTimeout(debounceTimeout);
+    debounceTimeout = setTimeout(() => {
+      const threshold = parseFloat(slider.value);
+      if (sliderValueDisplay) {
+        sliderValueDisplay.textContent = threshold.toFixed(2); // Update displayed value
+      }
+      updateLinks(threshold); // Update the visualization with the new threshold
+    }, 100); // Adjust the debounce delay as needed
+  });
+} else {
+  console.error('Slider element not found!');
+}
+function updateLinks(threshold) {
+  links.length = 0; // Clear existing links
+
+  members.forEach((member) => {
+    const member_key = member.item?.key || 'unknown-member';
+    Object.entries(member.clusters).forEach(([cl_id, cl_data]) => {
+      const { score } = cl_data;
+      if (score >= threshold && node_map[cl_id]) {
+        links.push({
+          source: cl_id,
+          target: member_key,
+          score,
+          stroke: '#4c7787',
+        });
+      }
+    });
+  });
+
+  // Restart the simulation with the updated links
+  simulation.force(
+    'link',
+    d3
+      .forceLink(links)
+      .id((d) => d.id)
+      .distance((link) =>
+        typeof link.score === 'number' ? distance_scale(link.score) : 200
+      )
+  );
+
+  simulation.alpha(1).restart();
+}
   const width = canvas_el.width || 800;
   const height = canvas_el.height || 600;
 
