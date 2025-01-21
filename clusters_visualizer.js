@@ -138,7 +138,8 @@ requestAnimationFrame(() => {
   const node_map = {};
 
   clusters.forEach((cluster) => {
-    const c_key = cluster.data.key;
+    console.log('cluster:', cluster);
+    const c_key = cluster.key;
     const c_node = {
       id: c_key,
       type: 'cluster',
@@ -151,7 +152,7 @@ requestAnimationFrame(() => {
   });
 
   members.forEach((member) => {
-    const member_key = member.item?.data?.key || 'unknown-member';
+    const member_key = member.item?.key || 'unknown-member';
     if (!node_map[member_key]) {
       node_map[member_key] = {
         id: member_key,
