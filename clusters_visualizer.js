@@ -138,7 +138,7 @@ const vis_actions = frag.querySelector('.sc-visualizer-actions');
 vis_actions.appendChild(slider_frag);
 
 // Find the slider and initialize event listeners
-const slider = slider_frag.querySelector('input[type="range"]'); // Locate the slider input
+const slider = vis_actions.querySelector('input[type="range"]'); // Locate the slider input
 const sliderValueDisplay = slider_frag.querySelector('.setting-item-description'); // Locate the display element
 
 if (slider) {
