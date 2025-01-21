@@ -131,7 +131,7 @@ const slider_frag = await this.render_settings({
     min: 0.6,
     max: 1.0,
     step: 0.01,
-    value: cluster_group.filters?.threshold || 0.6,
+    value: cluster_group.settings?.threshold || 0.6,
   }
 }, {scope: cluster_group});
 const vis_actions = frag.querySelector('.sc-visualizer-actions');
@@ -152,6 +152,7 @@ if (slider) {
         sliderValueDisplay.textContent = threshold.toFixed(2); // Update displayed value
       }
       updateLinks(threshold); // Update the visualization with the new threshold
+      cluster_group.queue_save();
     }, 100); // Adjust the debounce delay as needed
   });
 } else {
@@ -243,7 +244,8 @@ function updateLinks(threshold) {
     }
     Object.entries(member.clusters).forEach(([cl_id, cl_data]) => {
       const { score } = cl_data;
-      if (score >= 0.6 && node_map[cl_id]) {
+      const threshold = cluster_group.settings?.threshold || 0.6;
+      if (score >= threshold && node_map[cl_id]) {
         links.push({
           source: cl_id,
           target: member_key,
