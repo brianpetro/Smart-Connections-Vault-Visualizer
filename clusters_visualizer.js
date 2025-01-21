@@ -466,8 +466,12 @@ requestAnimationFrame(() => {
     }
   });
 
-  createClusterBtn?.addEventListener('click', () => {
+  createClusterBtn?.addEventListener('click', async () => {
     console.log('Create new cluster from selection.  Available when any node(s) selected - can be nodes from different clusters and orphans - 2 step process - 2nd step is to select which node(s) to be center of new cluster');
+    const cluster = await cluster_groups.env.clusters.create_or_update({ center: {[selectedNodes[0]]: {weight: 1}} });
+    const {new_cluster, new_cluster_group} = await cluster_groups.add_cluster(cluster);
+    console.log('new_cluster', new_cluster);
+    console.log('new_cluster_group', new_cluster_group);
   });
 
   addToClusterBtn?.addEventListener('click', () => {
