@@ -44,6 +44,9 @@ export class CenterSelectModal extends FuzzySuggestModal {
       this.inputEl.value = this.current_input;
     }
     this.render_pills();
+    this.inputEl.addEventListener('blur', () => {
+      this.inputEl.focus();
+    });
   }
   getItems() {
     return Object.keys(this.plugin.env.smart_sources.items).filter((key) => {
