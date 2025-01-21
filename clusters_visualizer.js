@@ -69,33 +69,6 @@ function findNodeAt(sx, sy, nodes) {
   return null;
 }
 
-function updateSelection(isShiftKey) {
-  if (!selectionStart || !selectionEnd) return;
-
-  const [x0, y0] = selectionStart;
-  const [x1, y1] = selectionEnd;
-  const minX = Math.min(x0, x1);
-  const maxX = Math.max(x0, x1);
-  const minY = Math.min(y0, y1);
-  const maxY = Math.max(y0, y1);
-
-  // Gather the nodes in the box
-  const inBox = [];
-  nodes.forEach((node) => {
-    const { x, y } = node;
-    if (x >= minX && x <= maxX && y >= minY && y <= maxY) {
-      inBox.push(node);
-    }
-  });
-
-  // If SHIFT is pressed, add them to existing selection:
-  if (isShiftKey) {
-    inBox.forEach((node) => selectedNodes.add(node));
-  } else {
-    selectedNodes.clear();
-    inBox.forEach((node) => selectedNodes.add(node));
-  }
-}
 
 export async function render(cluster_groups, opts = {}) {
   const debug = !!opts.debug;
@@ -188,16 +161,17 @@ export async function render(cluster_groups, opts = {}) {
   const min_score = d3.min(all_scores) ?? 0.6;
   const max_score = d3.max(all_scores) ?? 1.0;
   const distance_scale = d3
-    .scaleLinear()
-    .domain([min_score, max_score])
-    .range([220, 80])
-    .clamp(true);
+  .scalePow()
+  .exponent(2.5)      // or 3, tweak to taste
+  .domain([min_score, max_score])
+  .range([400, 40])   // bigger range difference
+  .clamp(true);
 
   // Build the simulation
   const charge_strength = nodes.length > 200 ? -60 : -100;
   const simulation = d3
     .forceSimulation(nodes)
-    .force('charge', d3.forceManyBody().strength(charge_strength))
+    .force('charge', d3.forceManyBody().strength(-400))  // was -100
     .force(
       'link',
       d3
@@ -264,43 +238,44 @@ export async function render(cluster_groups, opts = {}) {
     const node = event.subject;
     if (!node) return;
 
-    // "Unfix" just in case pinned is on
+    // "Unfix" just in case pinned
     if (pinned) {
       node.fx = null;
       node.fy = null;
     }
 
     // Standard reheat for dragging
-    if (!event.active) simulation.alphaTarget(0.3).restart();
+    if (!event.active) simulation.alphaTarget(0.1).restart();
 
-    // Store the initial pointer position
-    dragStartPos = [event.x, event.y];
+    // 1) Store the pointer in simulation coords:
+    const [mx, my] = d3.pointer(event, canvas_el);
+    const [sx, sy] = transform.invert([mx, my]);
+    dragStartPos = [sx, sy];
 
-    // If the *clicked* node is in the selection, prepare to move them all
-    // Otherwise, we might drag only this node.
+    // 2) Keep track of each selected node's (x,y)
     if (selectedNodes.has(node)) {
-      // For each selected node, remember its (x, y) at drag-start
       nodeStartPositions.clear();
       selectedNodes.forEach((sn) => {
         nodeStartPositions.set(sn, { x: sn.x, y: sn.y });
       });
     } else {
-      // Single node drag fallback:
       nodeStartPositions.clear();
       nodeStartPositions.set(node, { x: node.x, y: node.y });
     }
   })
   .on('drag', (event) => {
-    // If there's no reference pointer, do nothing
     if (!dragStartPos) return;
 
-    // How far has the pointer moved since drag start?
-    const dx = event.x - dragStartPos[0];
-    const dy = event.y - dragStartPos[1];
+    // 3) Current pointer in simulation coords
+    const [mx, my] = d3.pointer(event, canvas_el);
+    const [sx, sy] = transform.invert([mx, my]);
 
-    // Move every node that was stored in nodeStartPositions
+    // 4) Delta from drag start
+    const dx = sx - dragStartPos[0];
+    const dy = sy - dragStartPos[1];
+
+    // 5) Apply that delta to each node's original position
     nodeStartPositions.forEach((startPos, n) => {
-      // For a standard D3 force-sim, setting fx/fy positions the node.
       n.fx = startPos.x + dx;
       n.fy = startPos.y + dy;
     });
@@ -309,10 +284,9 @@ export async function render(cluster_groups, opts = {}) {
     const node = event.subject;
     if (!node) return;
 
-    // Reset alpha to finish
+    // Standard end-of-drag cleanup
     if (!event.active) simulation.alphaTarget(0);
 
-    // If pinned, fix final positions. Otherwise release them
     if (pinned) {
       nodeStartPositions.forEach((_, n) => {
         n.fx = n.x;
@@ -325,7 +299,6 @@ export async function render(cluster_groups, opts = {}) {
       });
     }
 
-    // Cleanup
     dragStartPos = null;
     nodeStartPositions.clear();
   });
@@ -342,6 +315,34 @@ export async function render(cluster_groups, opts = {}) {
   let isSelecting = false;
   let selectionStart = null;
   let selectionEnd = null;
+
+  function updateSelection(isShiftKey) {
+    if (!selectionStart || !selectionEnd) return;
+  
+    const [x0, y0] = selectionStart;
+    const [x1, y1] = selectionEnd;
+    const minX = Math.min(x0, x1);
+    const maxX = Math.max(x0, x1);
+    const minY = Math.min(y0, y1);
+    const maxY = Math.max(y0, y1);
+  
+    // Gather the nodes in the box
+    const inBox = [];
+    nodes.forEach((node) => {
+      const { x, y } = node;
+      if (x >= minX && x <= maxX && y >= minY && y <= maxY) {
+        inBox.push(node);
+      }
+    });
+  
+    // If SHIFT is pressed, add them to existing selection:
+    if (isShiftKey) {
+      inBox.forEach((node) => selectedNodes.add(node));
+    } else {
+      selectedNodes.clear();
+      inBox.forEach((node) => selectedNodes.add(node));
+    }
+  }
 
   d3.select(canvas_el)
   .on('mousedown', (event) => {
@@ -401,35 +402,6 @@ export async function render(cluster_groups, opts = {}) {
     ticked(); // Redraw to reflect selection changes
   });
 
-  function updateSelection() {
-  if (!selectionStart || !selectionEnd) return;
-
-  const [x0, y0] = selectionStart;
-  const [x1, y1] = selectionEnd;
-
-  // Ensure we treat x0,y0 as the "top-left" and x1,y1 as the "bottom-right"
-  const minX = Math.min(x0, x1);
-  const maxX = Math.max(x0, x1);
-  const minY = Math.min(y0, y1);
-  const maxY = Math.max(y0, y1);
-
-  // If you do *not* want to allow multi-select with bounding box by default:
-  // selectedNodes.clear();
-  //
-  // Or if you *do* want SHIFT+Drag to add to existing selection, handle that logic here.
-  // E.g. if (multiSelectMode) { do union } else { new selection }.
-  // For simplicity, let's do a "fresh" selection each time:
-
-  selectedNodes.clear();
-
-  // Check each node
-  nodes.forEach((node) => {
-    const { x, y } = node;
-    if (x >= minX && x <= maxX && y >= minY && y <= maxY) {
-      selectedNodes.add(node);
-    }
-  });
-}
 
    // --- PIN BUTTON CLICK HANDLER ---
    pinBtn?.addEventListener('click', () => {
@@ -481,51 +453,91 @@ export async function render(cluster_groups, opts = {}) {
     console.log('Remove node(s) from cluster(s) and recluster. Available when any node(s) are selected + in cluster(s) - get prev snapshot on rerender to show were reclustered in UI ');
   });
 
+  // 1) Add "desiredAlpha" and "currentAlpha" to each node/link at creation:
+nodes.forEach(node => {
+  node.desiredAlpha = 1; 
+  node.currentAlpha = 1; 
+});
 
-  function ticked() {
-    context.clearRect(0, 0, width, height);
-    context.save();
-    context.translate(transform.x, transform.y);
-    context.scale(transform.k, transform.k);
+links.forEach(link => {
+  link.desiredAlpha = 1;
+  link.currentAlpha = 1;
+});
 
-    // Draw links
-    links.forEach((link) => {
-      context.beginPath();
-      context.strokeStyle = link.stroke || '#ccc';
-      context.lineWidth = 1.2;
-      context.moveTo(link.source.x, link.source.y);
-      context.lineTo(link.target.x, link.target.y);
+  // 2) In ticked(), once you've determined connected sets:
+function ticked() {
+  context.clearRect(0, 0, width, height);
+  context.save();
+  context.translate(transform.x, transform.y);
+  context.scale(transform.k, transform.k);
+
+  // Decide which nodes/links are "highlighted"
+  const connectedNodes = new Set();
+  const connectedLinks = new Set();
+
+  if (hoveredNode) {
+    connectedNodes.add(hoveredNode);
+    links.forEach(link => {
+      if (link.source === hoveredNode || link.target === hoveredNode) {
+        connectedLinks.add(link);
+        connectedNodes.add(link.source);
+        connectedNodes.add(link.target);
+      }
+    });
+  }
+
+  // Update desiredAlpha based on highlight
+  nodes.forEach(node => {
+    node.desiredAlpha = hoveredNode 
+      ? (connectedNodes.has(node) ? 1.0 : 0.1) 
+      : 1.0; // If no hover, go full strength
+  });
+  links.forEach(link => {
+    link.desiredAlpha = hoveredNode 
+      ? (connectedLinks.has(link) ? 1.0 : 0.05)
+      : 1.0; 
+  });
+
+  // 3) Animate currentAlpha -> desiredAlpha and draw links
+  links.forEach(link => {
+    link.currentAlpha += (link.desiredAlpha - link.currentAlpha) * 0.15;
+    context.beginPath();
+    // Example: fade stroke color
+    const alphaStroke = `rgba(76,119,135,${link.currentAlpha})`; 
+    context.strokeStyle = alphaStroke;
+    context.lineWidth = link.currentAlpha > 0.5 ? 1.2 : 1;
+    context.moveTo(link.source.x, link.source.y);
+    context.lineTo(link.target.x, link.target.y);
+    context.stroke();
+  });
+
+  // 4) Animate currentAlpha -> desiredAlpha and draw nodes
+  nodes.forEach(node => {
+    node.currentAlpha += (node.desiredAlpha - node.currentAlpha) * 0.15;
+    context.beginPath();
+    context.fillStyle = hexToRgba(node.color, node.currentAlpha);
+    context.arc(node.x, node.y, node.radius, 0, 2 * Math.PI);
+    context.fill();
+
+    if (selectedNodes.has(node)) {
+      context.lineWidth = 3;
+      context.strokeStyle = '#ff9800';
       context.stroke();
-    });
-
-    // Draw nodes
-    nodes.forEach((node) => {
+    }
+  });
+  
+    // --- 4) (Optional) Draw selection box if user is shift‐dragging ---
+    if (isSelecting && selectionStart && selectionEnd) {
       context.beginPath();
-      context.fillStyle = node.color;
-      context.arc(node.x, node.y, node.radius, 0, 2 * Math.PI);
-      context.fill();
-
-      // If you have multi-select or single selection:
-      if (selectedNodes.has(node)) {
-        context.lineWidth = 3;
-        context.strokeStyle = '#ff9800'; // highlight color
-        context.stroke();
-      }
-    });
-
-     // Draw selection box
-      if (isSelecting && selectionStart && selectionEnd) {
-        context.beginPath();
-        context.strokeStyle = '#009688'; // Selection box color
-        context.lineWidth = 1.5;
-        const [x0, y0] = selectionStart;
-        const [x1, y1] = selectionEnd;
-        context.rect(x0, y0, x1 - x0, y1 - y0);
-        context.stroke();
-      }
-
-
-    // Hover label
+      context.strokeStyle = '#009688';
+      context.lineWidth = 1.5;
+      const [x0, y0] = selectionStart;
+      const [x1, y1] = selectionEnd;
+      context.rect(x0, y0, x1 - x0, y1 - y0);
+      context.stroke();
+    }
+  
+    // --- 5) Show label for hovered node ---
     if (hoveredNode) {
       context.beginPath();
       context.fillStyle = '#ccc';
@@ -543,8 +555,26 @@ export async function render(cluster_groups, opts = {}) {
         hoveredNode.y - hoveredNode.radius - 4
       );
     }
-
+  
     context.restore();
+  }
+  
+  // Utility to apply alpha to a hex color
+  function hexToRgba(hex, alpha = 1) {
+    if (!/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/.test(hex)) {
+      // Fallback if something unexpected
+      return `rgba(0,0,0,${alpha})`;
+    }
+    // Strip leading #
+    hex = hex.slice(1);
+    // If shorthand (e.g. #abc), expand to full form (#aabbcc)
+    if (hex.length === 3) {
+      hex = hex.split('').map(ch => ch + ch).join('');
+    }
+    const r = parseInt(hex.substr(0,2), 16);
+    const g = parseInt(hex.substr(2,2), 16);
+    const b = parseInt(hex.substr(4,2), 16);
+    return `rgba(${r},${g},${b},${alpha})`;
   }
 
   return await post_process.call(this, cluster_groups, frag, opts);
