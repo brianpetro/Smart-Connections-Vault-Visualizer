@@ -37,3 +37,17 @@
   margin-left: 6px;
 }
 
+
+.sc-clusters-visualizer-view {
+  /* Make sure it can fill the parent pane */
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.sc-visualizer-content {
+  /* This ensures the content area itself grows */
+  flex: 1;
+  position: relative;
+}

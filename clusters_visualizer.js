@@ -48,8 +48,8 @@ export async function build_html(cluster_groups, opts = {}) {
         </div>
       </div>
       <div class="sc-visualizer-content" style="width: 100%; height: 100%;">
-      <canvas class="clusters-visualizer-canvas" width="1000px" height="1000px" 
-              style="border:1px solid #333; display:block;">
+      <canvas class="clusters-visualizer-canvas" width="100%" height="100%" 
+              style="display:block;">
       </canvas>
       </div>
     </div>
@@ -100,6 +100,27 @@ export async function render(cluster_groups, opts = {}) {
     return frag;
   }
   const context = canvas_el.getContext('2d');
+
+  // For the immediate container
+  const container_el = frag.querySelector('.sc-visualizer-content');
+
+ // A function that resizes the <canvas> to match the container
+function resizeCanvas() {
+  const { width, height } = container_el.getBoundingClientRect();
+  canvas_el.width = width;
+  canvas_el.height = height;
+  // Possibly re-draw
+  ticked();
+}
+
+
+
+// Defer measuring until it's attached to DOM
+requestAnimationFrame(() => {
+  resizeCanvas();
+  ticked(); // Draw
+});
+
   const width = canvas_el.width || 800;
   const height = canvas_el.height || 600;
 
@@ -171,6 +192,7 @@ export async function render(cluster_groups, opts = {}) {
   const charge_strength = nodes.length > 200 ? -60 : -100;
   const simulation = d3
     .forceSimulation(nodes)
+    .velocityDecay(0.9)
     .force('charge', d3.forceManyBody().strength(-400))  // was -100
     .force(
       'link',
@@ -225,9 +247,11 @@ export async function render(cluster_groups, opts = {}) {
   // Keep some state for dragging
   let dragStartPos = null;  // The [x,y] of the pointer at drag start
   let nodeStartPositions = new Map(); 
+  let isDragging = false;
+
   // nodeStartPositions will map each *selected* node -> { x, y }
 
-  const drag_behavior = d3.drag()
+  const drag_behavior = d3.drag().clickDistance(5)  
   .subject((event) => {
     // The node that was clicked, if any
     const [mx, my] = d3.pointer(event, canvas_el);
@@ -237,6 +261,9 @@ export async function render(cluster_groups, opts = {}) {
   .on('start', (event) => {
     const node = event.subject;
     if (!node) return;
+
+    isDragging = true;
+    hoveredNode = null; // Clear hover state immediately
 
     // "Unfix" just in case pinned
     if (pinned) {
@@ -301,6 +328,7 @@ export async function render(cluster_groups, opts = {}) {
 
     dragStartPos = null;
     nodeStartPositions.clear();
+    isDragging = false;
   });
 
 
@@ -355,6 +383,10 @@ export async function render(cluster_groups, opts = {}) {
     }
   })
     .on('mousemove', (event) => {
+
+      if (isDragging) {
+        return;
+      }
 
       if (isSelecting) {
         const [mx, my] = d3.pointer(event, canvas_el);
@@ -466,7 +498,10 @@ links.forEach(link => {
 
   // 2) In ticked(), once you've determined connected sets:
 function ticked() {
-  context.clearRect(0, 0, width, height);
+  const w = canvas_el.width;
+  const h = canvas_el.height;
+
+  context.clearRect(0, 0, w, h);
   context.save();
   context.translate(transform.x, transform.y);
   context.scale(transform.k, transform.k);
