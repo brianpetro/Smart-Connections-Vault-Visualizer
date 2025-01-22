@@ -50,6 +50,10 @@
   width: 100%;
 }
 
+.sc-clusters-visualizer-view .setting-item {
+  margin-top: 10px;
+}
+
 .sc-visualizer-content {
   /* This ensures the content area itself grows */
   flex: 1;

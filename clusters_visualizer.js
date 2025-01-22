@@ -64,9 +64,16 @@ export async function build_html(cluster_groups, opts = {}) {
 }
 
 // HELPER: find node at the given simulation coords (sx, sy) within radius
-function findNodeAt(sx, sy, nodes) {
+// HELPER: find node at the given simulation coords (sx, sy) within radius
+function findNodeAt(sx, sy, nodes, currentZoom, expandThreshold = 3.0) {
   for (let i = nodes.length - 1; i >= 0; i--) {
     const node = nodes[i];
+
+    // (Optional) skip child centers if zoom is below threshold
+    if (node.type === 'center' && currentZoom < expandThreshold) {
+      continue;
+    }
+
     const dx = sx - node.x;
     const dy = sy - node.y;
     if (dx * dx + dy * dy <= node.radius * node.radius) {
@@ -78,7 +85,9 @@ function findNodeAt(sx, sy, nodes) {
 
 
 export async function render(cluster_groups, opts = {}) {
-  const debug = !!opts.debug;
+  let debug = !!opts.debug;
+  
+  debug = true;
   if (debug) console.log('render() called with:', cluster_groups);
 
   const cluster_group = Object.values(cluster_groups.items).sort((a, b) => b.key.localeCompare(a.key))[0];
@@ -289,16 +298,49 @@ function updateLinks(threshold) {
   }
 
   clusters.forEach((cluster) => {
-    const c_key = cluster.key;
+    // Main node:
     const c_node = {
-      id: c_key,
+      id: cluster.key,
       type: 'cluster',
       color: '#926ec9',
       radius: 20,
-      cluster,
+      cluster: cluster,
+      children: [],   // keep track if needed
     };
-    node_map[c_key] = c_node;
     nodes.push(c_node);
+    node_map[cluster.key] = c_node;
+  
+    // Child nodes (the centers):
+    if (Array.isArray(cluster.centers)) {
+      const childCount = cluster.centers.length;
+  
+      cluster.centers.forEach((centerObj, i) => {
+        // Instead of random, you might do an evenly spaced ring
+        const angle = (i / childCount) * 2 * Math.PI;
+        const dist = c_node.radius * 0.7;  // child ring radius, tweak as needed
+  
+        const childNode = {
+          id: `${centerObj.key}`,
+          type: 'center',
+          color: '#d092c9',
+  
+          // Hard-code child radius smaller:
+          radius: 4,
+  
+          // Keep reference to parent
+          parent: c_node,
+          cluster,
+          centerObj,
+  
+          // Store stable offset
+          offsetAngle: angle,
+          offsetDist: dist,
+        };
+  
+        nodes.push(childNode);
+        c_node.children.push(childNode);
+      });
+    }
   });
 
   members.forEach((member) => {
@@ -357,6 +399,7 @@ function updateLinks(threshold) {
           typeof link.score === 'number' ? distance_scale(link.score) : 200
         )
     )
+    .force("childToParent", d3.forceManyBody().strength(0)) // placeholder
     .on('tick', ticked);
 
   // Pre-run to stabilize
@@ -388,7 +431,7 @@ function updateLinks(threshold) {
       // If pointer is over a node, skip zoom
       const [mx, my] = d3.pointer(event, canvas_el);
       const [sx, sy] = transform.invert([mx, my]);
-      const node = findNodeAt(sx, sy, nodes);
+      const node = findNodeAt(sx, sy, nodes, transform.k);
       return !node;
     })
     .on('zoom', (event) => {
@@ -411,7 +454,7 @@ function updateLinks(threshold) {
     // The node that was clicked, if any
     const [mx, my] = d3.pointer(event, canvas_el);
     const [sx, sy] = transform.invert([mx, my]);
-    return findNodeAt(sx, sy, nodes) || null;
+    return findNodeAt(sx, sy, nodes, transform.k) || null;
   })
   .on('start', (event) => {
     const node = event.subject;
@@ -550,7 +593,7 @@ function updateLinks(threshold) {
       } else {
         const [mx, my] = d3.pointer(event, canvas_el);
         const [sx, sy] = transform.invert([mx, my]);
-        hoveredNode = findNodeAt(sx, sy, nodes);
+        hoveredNode = findNodeAt(sx, sy, nodes, transform.k);
         canvas_el.style.cursor = hoveredNode ? 'pointer' : 'default';
         ticked();
       }
@@ -574,7 +617,7 @@ function updateLinks(threshold) {
 
       const [mx, my] = d3.pointer(event, canvas_el);
       const [sx, sy] = transform.invert([mx, my]);
-      const clickedNode = findNodeAt(sx, sy, nodes);
+      const clickedNode = findNodeAt(sx, sy, nodes, transform.k);
 
     if (event.shiftKey) {
       // Multi-select mode
@@ -632,6 +675,8 @@ function updateLinks(threshold) {
       acc[node.item.key] = {weight: 1}; 
       return acc;
     }, {});
+
+    console.log('center:', center);
 
     const cluster = await cluster_group.env.clusters.create_or_update({ center });
     const new_cluster = await cluster_group.add_cluster(cluster);
@@ -758,6 +803,19 @@ function ticked() {
   context.translate(transform.x, transform.y);
   context.scale(transform.k, transform.k);
 
+  // 1) Position child nodes at parent's location (or near it)
+  nodes.forEach((node) => {
+    if (node.type === 'center') {
+      // Move child to parent's position + its stable offset
+      node.x = node.parent.x + node.offsetDist * Math.cos(node.offsetAngle);
+      node.y = node.parent.y + node.offsetDist * Math.sin(node.offsetAngle);
+  
+      // Optionally keep child node pinned so the force sim won't push it away
+      node.fx = node.x;
+      node.fy = node.y;
+    }
+  });
+
   // Decide which nodes/links are "highlighted"
   const connectedNodes = new Set();
   const connectedLinks = new Set();
@@ -798,20 +856,60 @@ function ticked() {
     context.stroke();
   });
 
-  // 4) Animate currentAlpha -> desiredAlpha and draw nodes
-  nodes.forEach(node => {
-    node.currentAlpha += (node.desiredAlpha - node.currentAlpha) * 0.15;
+
+  // After context transform...
+const currentZoom = transform.k;  // e.g. from your zoom behavior
+const expandThreshold = 3.0;      // choose a threshold
+
+nodes.forEach((node) => {
+  node.currentAlpha += (node.desiredAlpha - node.currentAlpha) * 0.15;
+
+  // Decide how to draw:
+  if (node.type === 'cluster') {
+    // If zoom < threshold, draw cluster normally
+    if (currentZoom < expandThreshold) {
+      context.beginPath();
+      context.fillStyle = hexToRgba(node.color, node.currentAlpha);
+      context.arc(node.x, node.y, node.radius, 0, 2 * Math.PI);
+      context.fill();
+      if (selectedNodes.has(node)) {
+        context.lineWidth = 3;
+        context.strokeStyle = '#ff9800';
+        context.stroke();
+      }
+    } else {
+      // We are zoomed in, so fade out cluster
+      context.beginPath();
+      context.fillStyle = hexToRgba(node.color, 0.5); // mostly transparent
+      context.arc(node.x, node.y, node.radius, 0, 2 * Math.PI);
+      context.fill();
+    }
+  } else if (node.type === 'center') {
+    // Only draw child center if zoom >= threshold
+    if (currentZoom >= expandThreshold) {
+      context.beginPath();
+      context.fillStyle = hexToRgba(node.color, node.currentAlpha);
+      context.arc(node.x, node.y, node.radius, 0, 2 * Math.PI);
+      context.fill();
+      if (selectedNodes.has(node)) {
+        context.lineWidth = 3;
+        context.strokeStyle = '#ff9800';
+        context.stroke();
+      }
+    }
+  } else {
+    // Regular members, always drawn
     context.beginPath();
     context.fillStyle = hexToRgba(node.color, node.currentAlpha);
     context.arc(node.x, node.y, node.radius, 0, 2 * Math.PI);
     context.fill();
-
     if (selectedNodes.has(node)) {
       context.lineWidth = 3;
       context.strokeStyle = '#ff9800';
       context.stroke();
     }
-  });
+  }
+});
   
     // --- 4) (Optional) Draw selection box if user is shift‐dragging ---
     if (isSelecting && selectionStart && selectionEnd) {
@@ -835,6 +933,8 @@ function ticked() {
         labelText = getLastSegmentWithoutExtension(hoveredNode.cluster?.name) || hoveredNode.id;
       } else if (hoveredNode.type === 'member') {
         labelText = getLastSegmentWithoutExtension(hoveredNode.item?.key) || hoveredNode.id;
+      } else if (hoveredNode.type === 'center') {
+        labelText = getLastSegmentWithoutExtension(hoveredNode.id) || hoveredNode.id;
       }
       context.fillText(
         labelText,
