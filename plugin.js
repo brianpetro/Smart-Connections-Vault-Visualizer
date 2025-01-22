@@ -84,6 +84,9 @@ class SmartVisualizerPlugin extends Plugin {
     });
     this.registerView(ClustersVisualizerView.view_type, (leaf) => new ClustersVisualizerView(leaf, this));
     this.registerView(ConnectionsVisualizerView.view_type, (leaf) => new ConnectionsVisualizerView(leaf, this));
+    this.addRibbonIcon('git-fork', 'Open smart connections visualizer', (evt) => {
+      this.open_connections_visualizer();
+    });
   }
 
   /**
