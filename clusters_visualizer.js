@@ -210,6 +210,7 @@ if (slider) {
         sliderValueDisplay.textContent = threshold.toFixed(2); // Update displayed value
       }
       updateLinks(threshold); // Update the visualization with the new threshold
+      centerNetwork();
       cluster_group.queue_save();
     }, 100); // Adjust the debounce delay as needed
   });
@@ -254,7 +255,9 @@ function updateLinks(threshold) {
       .distance((link) =>
         typeof link.score === 'number' ? distance_scale(link.score) : 200
       )
-  );
+  )
+  .force('center', d3.forceCenter(0, 0) )
+  .force('radial', d3.forceRadial(200, 0, 0).strength(0.05)) ;
 
   simulation.alpha(1).restart();
 }
