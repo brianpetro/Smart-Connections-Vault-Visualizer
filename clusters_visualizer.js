@@ -29,6 +29,9 @@ export async function build_html(cluster_groups, opts = {}) {
           </button>
           <button class="sc-remove-from-cluster" aria-label="Remove node(s) from cluster">
             ${this.get_icon_html?.('badge-x') || 'badge-x'}
+            <div class="dropdown hidden">
+              <ul class="dropdown-menu"></ul>
+            </div>
           </button>
           <button class="sc-add-to-cluster" aria-label="Merge node(s) to cluster">
             ${this.get_icon_html?.('combine') || 'combine'}
@@ -596,14 +599,43 @@ function updateLinks(threshold) {
       }
   });
 
-  removeFromClusterBtn?.addEventListener('click', async () => {
-        const items = Array.from(selectedNodes.values()).map((node) => node.item);
-        const removed_items = await cluster_group.remove_members(items);
+  // removeFromClusterBtn?.addEventListener('click', async () => {
+  //       const items = Array.from(selectedNodes.values()).map((node) => node.item);
+  //       const removed_items = await cluster_group.remove_members(items);
 
-        if (typeof opts.refresh_view === 'function') {
-          opts.refresh_view();
-        }
+  //       if (typeof opts.refresh_view === 'function') {
+  //         opts.refresh_view();
+  //       }
+  // });
+
+  removeFromClusterBtn?.addEventListener('click', () => {
+    const dropdown = removeFromClusterBtn.querySelector('.dropdown');
+    const dropdownMenu = dropdown.querySelector('.dropdown-menu');
+    
+    // Toggle visibility
+    dropdown.classList.toggle('hidden');
+  
+    // Clear and populate the dropdown menu with cluster keys
+    dropdownMenu.innerHTML = ''; // Clear existing items
+    clusters.forEach((cluster) => {
+      const menuItem = document.createElement('li');
+      menuItem.textContent = cluster.name;
+      menuItem.classList.add('dropdown-item');
+      dropdownMenu.appendChild(menuItem);
+  
+      // Add click event for each dropdown item
+      menuItem.addEventListener('click', () => {
+        dropdown.classList.add('hidden'); // Hide the dropdown after selection
+        handleClusterItemSelected(cluster.name);  // Call the handler with selected key
+      });
+    });
   });
+  
+  // Function to handle cluster item selection
+  function handleClusterItemSelected(selectedKey) {
+    console.log(`Selected cluster key: ${selectedKey}`);
+    // Add your logic here to handle the selected key
+  }
 
   // 1) Add "desiredAlpha" and "currentAlpha" to each node/link at creation:
 nodes.forEach(node => {
@@ -700,7 +732,7 @@ function ticked() {
       context.textAlign = 'center';
       let labelText = hoveredNode.id;
       if (hoveredNode.type === 'cluster') {
-        labelText = hoveredNode.cluster?.key || hoveredNode.id;
+        labelText = hoveredNode.cluster?.name || hoveredNode.id;
       } else if (hoveredNode.type === 'member') {
         labelText = hoveredNode.item?.key || hoveredNode.id;
       }
