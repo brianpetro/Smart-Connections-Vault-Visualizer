@@ -38,9 +38,7 @@ class SmartVisualizerPlugin extends Plugin {
     },
     components: {
       connections_visualizer: render_connections_visualizer,
-      cluster_groups: {
-        clusters_visualizer: render_clusters_visualizer,
-      }
+      clusters_visualizer: render_clusters_visualizer,
     }
   };
 

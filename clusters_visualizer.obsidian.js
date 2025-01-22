@@ -30,8 +30,7 @@ export class ClustersVisualizerView extends SmartEntitiesView {
     this.container.empty();
     this.container.createSpan().setText("Loading Clusters Visualizer...");
     // Rely on `this.env.smart_clusters`
-    const frag = await this.env.cluster_groups.render_component(this.main_component_key, {
-      refresh_view: this.render_view.bind(this), 
+    const frag = await this.env.render_component(this.main_component_key, this, {
       attribution: this.attribution,
     });
     this.container.empty();

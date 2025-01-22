@@ -84,9 +84,10 @@ function findNodeAt(sx, sy, nodes, currentZoom, expandThreshold = 3.0) {
 }
 
 
-export async function render(cluster_groups, opts = {}) {
+export async function render(view, opts = {}) {
   let debug = !!opts.debug;
   
+  const cluster_groups = view.env.cluster_groups;
   debug = true;
   if (debug) console.log('render() called with:', cluster_groups);
 
@@ -681,9 +682,7 @@ function updateLinks(threshold) {
     const cluster = await cluster_group.env.clusters.create_or_update({ center });
     const new_cluster = await cluster_group.add_cluster(cluster);
 
-    if (typeof opts.refresh_view === 'function') {
-      opts.refresh_view();
-    }
+    view.render_view();
 
   });
 
@@ -696,9 +695,7 @@ function updateLinks(threshold) {
     const items = Array.from(selectedNodes.values()).map((node) => node.item);
     await cluster_group.add_centers(items);
 
-    if (typeof opts.refresh_view === 'function') {
-      opts.refresh_view();
-    }
+    view.render_view();
   });
 
   removeFromClusterCenterBtn?.addEventListener('click', async () => {
@@ -722,9 +719,7 @@ function updateLinks(threshold) {
 
     await parentCluster.remove_centers(centerItems);
 
-    if (typeof opts.refresh_view === 'function') {
-      opts.refresh_view();
-    }
+    view.render_view();
   });
 
   removeClusterBtn?.addEventListener('click', async () => {
@@ -735,18 +730,14 @@ function updateLinks(threshold) {
       console.log('clusters removed:', clusters);
       await cluster_group.remove_clusters(clusters);
 
-      if (typeof opts.refresh_view === 'function') {
-        opts.refresh_view();
-      }
+      view.render_view();
   });
 
   // removeFromClusterBtn?.addEventListener('click', async () => {
   //       const items = Array.from(selectedNodes.values()).map((node) => node.item);
   //       const removed_items = await cluster_group.remove_members(items);
 
-  //       if (typeof opts.refresh_view === 'function') {
-  //         opts.refresh_view();
-  //       }
+      // view.render_view();
   // });
 
 
@@ -801,9 +792,7 @@ function updateLinks(threshold) {
     const items = Array.from(selectedNodes.values()).map((node) => node.item);
     const cluster = clusters.find((c) => c.name == selectedKey);
     const removed_items = await cluster.remove_members(items);
-    if (typeof opts.refresh_view === 'function') {
-      opts.refresh_view();
-    }
+    view.render_view();
   }
 
   // 1) Add "desiredAlpha" and "currentAlpha" to each node/link at creation:
@@ -1000,21 +989,17 @@ nodes.forEach((node) => {
  * @param {Object} [opts]
  * @returns {Promise<HTMLElement>}
  */
-export async function post_process(cluster_groups, frag, opts = {}) {
+export async function post_process(view, frag, opts = {}) {
   const refresh_btn = frag.querySelector('.sc-refresh');
   if (refresh_btn) {
     refresh_btn.addEventListener('click', () => {
-      if (typeof opts.refresh_view === 'function') {
-        opts.refresh_view();
-      }
+      view.render_view();
     });
   }
   const rebuild_btn = frag.querySelector('.sc-rebuild');
   if (rebuild_btn) {
     rebuild_btn.addEventListener('click', async () => {
-      if (typeof opts.refresh_view === 'function') {
-        opts.refresh_view();
-      }
+      view.render_view();
     });
   }
   const help_btn = frag.querySelector('.sc-help');
