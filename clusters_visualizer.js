@@ -266,7 +266,7 @@ function updateLinks(threshold) {
       )
   )
   .force('center', d3.forceCenter(0, 0) )
-  .force('radial', d3.forceRadial(200, 0, 0).strength(0.05)) ;
+  .force('radial', d3.forceRadial(100, 0, 0).strength(0.05)) ;
 
   simulation.alpha(1).restart();
 }
@@ -694,22 +694,46 @@ function updateLinks(threshold) {
   addToClusterCenterBtn?.addEventListener('click', async () => {
     console.log('Move node(s) to cluster center. Available only for nodes that are selected + in the same cluster + not in center, unless node(s) drag and dropped into center');
     const items = Array.from(selectedNodes.values()).map((node) => node.item);
-    const added_items = await cluster_group.add_centers(items);
+    await cluster_group.add_centers(items);
 
     if (typeof opts.refresh_view === 'function') {
       opts.refresh_view();
     }
   });
 
-  removeFromClusterCenterBtn?.addEventListener('click', () => {
+  removeFromClusterCenterBtn?.addEventListener('click', async () => {
     console.log('Remove node(s) from cluster center. Available only for nodes that are selected + in cluster center - still keeps them in their respective cluster');
+    const nodes = Array.from(selectedNodes.values());
+    if (!nodes.length) return;
+
+     // Since all selected centers share the same parent cluster, just grab the first node's parent:
+    const parentNode = nodes[0].parent;
+    const parentCluster = parentNode?.cluster;
+    if (!parentCluster) {
+      console.warn('No parent cluster found for the selected nodes!');
+      return;
+    }
+
+    // These could be node.item, node.centerObj, or similar, depending on how your "removeCenters" method expects data
+    const centerItems = Array.from(selectedNodes.values()).map((node) => node.centerObj);
+
+    console.log('parentCluster:', parentCluster);
+    console.log('centerItems:', centerItems);
+
+    await parentCluster.remove_centers(centerItems);
+
+    if (typeof opts.refresh_view === 'function') {
+      opts.refresh_view();
+    }
   });
 
   removeClusterBtn?.addEventListener('click', async () => {
     console.log('Remove node(s) from cluster(s) and recluster. Available when any node(s) are selected + in cluster(s) - get prev snapshot on rerender to show were reclustered in UI ');
 
-      const cluster_keys = Array.from(selectedNodes.values()).map((node) => node.cluster.key);
-      const removed_clusters = await cluster_group.remove_clusters(cluster_keys);
+      const clusters = Array.from(selectedNodes.values()).map((node) => node.cluster);
+      
+      console.log('clusters removed:', clusters);
+      await cluster_group.remove_clusters(clusters);
 
       if (typeof opts.refresh_view === 'function') {
         opts.refresh_view();
