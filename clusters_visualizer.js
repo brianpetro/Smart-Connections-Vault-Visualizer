@@ -29,10 +29,10 @@ export async function build_html(cluster_groups, opts = {}) {
           </button>
           <button class="sc-remove-from-cluster" aria-label="Remove node(s) from cluster">
             ${this.get_icon_html?.('badge-x') || 'badge-x'}
-            <div class="dropdown hidden">
-              <ul class="dropdown-menu"></ul>
-            </div>
           </button>
+          <div class="sc-viz-dropdown hidden">
+              <ul class="sc-viz-dropdown-menu"></ul>
+            </div>
           <button class="sc-add-to-cluster" aria-label="Merge node(s) to cluster">
             ${this.get_icon_html?.('combine') || 'combine'}
           </button>
@@ -222,8 +222,17 @@ function updateLinks(threshold) {
   const links = [];
   const node_map = {};
 
+  function getLastSegmentWithoutExtension(fullPath) {
+    // Split on "/" to get all segments
+    const segments = fullPath.split('/'); 
+    // Take the last segment
+    const lastSegment = segments[segments.length - 1]; 
+    // Remove the file extension by replacing a period + anything until the next slash/end
+    const segmentWithoutExtension = lastSegment.replace(/\.[^/.]+$/, ''); 
+    return segmentWithoutExtension;
+  }
+
   clusters.forEach((cluster) => {
-    console.log('cluster:', cluster);
     const c_key = cluster.key;
     const c_node = {
       id: c_key,
@@ -238,7 +247,8 @@ function updateLinks(threshold) {
 
   members.forEach((member) => {
     const member_key = member.item?.key || 'unknown-member';
-    if (!node_map[member_key]) {
+    // Dont add members that are already in the cluster
+    if (!node_map[member_key] && clusters.some(c => c.key !== member_key)) {
       node_map[member_key] = {
         id: member_key,
         type: 'member',
@@ -500,6 +510,12 @@ function updateLinks(threshold) {
     .on('click', (event) => {
       if (isSelecting) return; // or check a "didBoxSelect" boolean 
 
+      // Hide dropdown if it is open
+      const dropdown = event.target.parentElement.parentElement.querySelector('.sc-viz-dropdown');
+      if (!dropdown.classList.contains('hidden') && !removeFromClusterBtn.contains(event.target) && !dropdown.contains(event.target)) {
+        dropdown.classList.add('hidden');
+      }
+
       const [mx, my] = d3.pointer(event, canvas_el);
       const [sx, sy] = transform.invert([mx, my]);
       const clickedNode = findNodeAt(sx, sy, nodes);
@@ -608,33 +624,61 @@ function updateLinks(threshold) {
   //       }
   // });
 
-  removeFromClusterBtn?.addEventListener('click', () => {
-    const dropdown = removeFromClusterBtn.querySelector('.dropdown');
-    const dropdownMenu = dropdown.querySelector('.dropdown-menu');
+
+  removeFromClusterBtn?.addEventListener('click', (e) => {
+    const dropdown = e.target.parentElement.querySelector('.sc-viz-dropdown');
+    const dropdownMenu = e.target.parentElement.querySelector('.sc-viz-dropdown-menu');
     
-    // Toggle visibility
-    dropdown.classList.toggle('hidden');
+    console.log('dropdown: ', dropdown);
+   // Get the button's offsets relative to its nearest positioned ancestor
+   const parentRect = removeFromClusterBtn.offsetParent.getBoundingClientRect();
+   const buttonOffsetLeft = removeFromClusterBtn.offsetLeft;
+   const buttonOffsetTop = removeFromClusterBtn.offsetTop + removeFromClusterBtn.offsetHeight;
+ 
+   // Position the dropdown
+   if (dropdown.classList.contains('hidden')) {
+     dropdown.style.position = 'absolute';
+     dropdown.style.top = `${buttonOffsetTop}px`; // Below the button
+     dropdown.style.left = `${buttonOffsetLeft}px`; // Align with the button
+     dropdown.style.minWidth = `${removeFromClusterBtn.offsetWidth}px`; // Match button width
+     dropdown.style.zIndex = '10000'; // Ensure on top
+     dropdown.style.zIndex = '10000'; // Ensure it is on top
+      
+     dropdown.classList.remove('hidden'); // Show the dropdown
+    } else {
+     dropdown.classList.add('hidden'); // Hide the dropdown
+    }
   
-    // Clear and populate the dropdown menu with cluster keys
+    // Clear and populate the dropdown menu
     dropdownMenu.innerHTML = ''; // Clear existing items
     clusters.forEach((cluster) => {
       const menuItem = document.createElement('li');
-      menuItem.textContent = cluster.name;
-      menuItem.classList.add('dropdown-item');
+      menuItem.textContent = getLastSegmentWithoutExtension(cluster.name) || cluster.name;
+      menuItem.classList.add('sc-viz-dropdown-item');
       dropdownMenu.appendChild(menuItem);
   
       // Add click event for each dropdown item
       menuItem.addEventListener('click', () => {
         dropdown.classList.add('hidden'); // Hide the dropdown after selection
-        handleClusterItemSelected(cluster.name);  // Call the handler with selected key
+        handleClusterItemSelected(cluster.name); // Handle selection
       });
     });
+  
+    // Append dropdown to body
+    if (!document.body.contains(dropdown)) {
+      document.body.appendChild(dropdown);
+    }
   });
   
   // Function to handle cluster item selection
-  function handleClusterItemSelected(selectedKey) {
+  async function handleClusterItemSelected(selectedKey) {
     console.log(`Selected cluster key: ${selectedKey}`);
-    // Add your logic here to handle the selected key
+    const items = Array.from(selectedNodes.values()).map((node) => node.item);
+    const cluster = clusters.find((c) => c.name == selectedKey);
+    const removed_items = await cluster.remove_members(items);
+    if (typeof opts.refresh_view === 'function') {
+      opts.refresh_view();
+    }
   }
 
   // 1) Add "desiredAlpha" and "currentAlpha" to each node/link at creation:
@@ -732,9 +776,9 @@ function ticked() {
       context.textAlign = 'center';
       let labelText = hoveredNode.id;
       if (hoveredNode.type === 'cluster') {
-        labelText = hoveredNode.cluster?.name || hoveredNode.id;
+        labelText = getLastSegmentWithoutExtension(hoveredNode.cluster?.name) || hoveredNode.id;
       } else if (hoveredNode.type === 'member') {
-        labelText = hoveredNode.item?.key || hoveredNode.id;
+        labelText = getLastSegmentWithoutExtension(hoveredNode.item?.key) || hoveredNode.id;
       }
       context.fillText(
         labelText,
