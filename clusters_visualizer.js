@@ -117,6 +117,7 @@ function resizeCanvas() {
   const { width, height } = container_el.getBoundingClientRect();
   canvas_el.width = width;
   canvas_el.height = height;
+  
   // Possibly re-draw
   ticked();
 }
@@ -125,18 +126,70 @@ function resizeCanvas() {
 
 // Defer measuring until it's attached to DOM
 requestAnimationFrame(() => {
-  resizeCanvas();
-  ticked(); // Draw
+  setTimeout(() => {
+    resizeCanvas();
+    centerNetwork();
+    ticked();
+  }, 0);
 });
+
+function centerNetwork() {
+  // We'll gather min/max X/Y of all nodes
+  let minX = Infinity, maxX = -Infinity;
+  let minY = Infinity, maxY = -Infinity;
+
+  nodes.forEach((d) => {
+    if (d.x < minX) minX = d.x;
+    if (d.x > maxX) maxX = d.x;
+    if (d.y < minY) minY = d.y;
+    if (d.y > maxY) maxY = d.y;
+  });
+
+  // The current canvas size
+  const w = canvas_el.width;
+  const h = canvas_el.height;
+
+  const networkWidth = maxX - minX;
+  const networkHeight = maxY - minY;
+
+  if (networkWidth === 0 || networkHeight === 0) {
+    // If everything is at the same point, skip or just center
+    transform = d3.zoomIdentity
+      .translate(w / 2, h / 2) // Move to center of canvas
+      .scale(1);
+  } else {
+    // Optionally give 10% padding
+    const padding = 0.1;
+
+    // Figure out max scale to fit both width/height in the canvas
+    const scale = (1 - padding) / 
+      Math.max(networkWidth / w, networkHeight / h);
+
+    // Midpoints of the bounding box
+    const midX = (maxX + minX) / 2;
+    const midY = (maxY + minY) / 2;
+
+    // Translate so that (midX, midY) of the network ends up
+    // at the center of the canvas, scaled appropriately
+    transform = d3.zoomIdentity
+      .translate(w / 2, h / 2)
+      .scale(scale)
+      .translate(-midX, -midY);
+  }
+
+  // Use the zoom behavior to set this transform, so pan/zoom remains consistent
+  d3.select(canvas_el)
+    .call(zoom_behavior.transform, transform);
+}
 
 const slider_frag = await this.render_settings({
   threshold: {
     setting: 'threshold',
     type: 'slider',
-    min: 0.6,
+    min: 0.4,
     max: 1.0,
     step: 0.01,
-    value: cluster_group.settings?.threshold || 0.6,
+    value: cluster_group.settings?.threshold || 0.4,
   }
 }, {scope: cluster_group});
 const vis_actions = frag.querySelector('.sc-visualizer-actions');

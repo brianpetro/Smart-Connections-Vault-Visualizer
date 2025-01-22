@@ -46,6 +46,10 @@
   flex-direction: column;
 }
 
+.sc-clusters-visualizer-view input[type='range'] {
+  width: 100%;
+}
+
 .sc-visualizer-content {
   /* This ensures the content area itself grows */
   flex: 1;
