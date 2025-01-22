@@ -8,20 +8,32 @@ dotenv.config();
 if(!fs.existsSync(path.join(process.cwd(), 'dist'))) {
   fs.mkdirSync(path.join(process.cwd(), 'dist'), { recursive: true });
 }
+(async () => {
 
-esbuild.build({
-  entryPoints: ['./clusters_visualizer.js'],
-  outfile: './dist/clusters_visualizer.js',
-  bundle: true,
-  format: 'esm',   // or 'iife' if you prefer
-  platform: 'node',
-  sourcemap: true,
-  external: ['obsidian'], 
-  // ^ if you want to load d3 from a CDN or external script. 
-  //   Otherwise remove from external and `npm install d3` to bundle it fully.
+  await esbuild.build({
+    entryPoints: ['./clusters_visualizer.js'],
+    outfile: './dist/clusters_visualizer.js',
+    bundle: true,
+    format: 'esm',   // or 'iife' if you prefer
+    platform: 'node',
+    sourcemap: true,
+    external: ['obsidian'], 
+    // ^ if you want to load d3 from a CDN or external script. 
+    //   Otherwise remove from external and `npm install d3` to bundle it fully.
+  
+    // watch: true, // if you want watch mode
+  });
 
-  // watch: true, // if you want watch mode
-}).then(() => {
+  await esbuild.build({
+    entryPoints: ['./connections_visualizer.js'],
+    outfile: './dist/connections_visualizer.js',
+    bundle: true,
+    format: 'esm',   // or 'iife' if you prefer
+    platform: 'node',
+    sourcemap: true,
+    external: ['obsidian'], 
+  });
+
   console.log('clusters_visualizer build success');
   
   const main_path = path.join(process.cwd(), 'dist', 'main.js');
@@ -42,7 +54,7 @@ esbuild.build({
   const entry_point = process.argv[2] || 'plugin.js';
   
   // Build the project
-  esbuild.build({
+  await esbuild.build({
     entryPoints: [entry_point],
     outfile: 'dist/main.js',
     format: 'cjs',
@@ -63,7 +75,7 @@ esbuild.build({
     ],
     define: {
     },
-  }).then(() => {
+  })
     console.log('Build complete');
     // Copy the dist folder to ./DESTINATION_VAULT/.obsidian/plugins/smart-connections/
     const release_file_paths = [manifest_path, styles_path, main_path];
@@ -80,8 +92,4 @@ esbuild.build({
       });
       console.log(`Copied files to ${destDir}`);
     }
-  }).catch(() => process.exit(1));
-}).catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+})();

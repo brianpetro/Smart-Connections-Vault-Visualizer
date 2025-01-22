@@ -12,6 +12,8 @@ import { ClusterGroups, ClusterGroup } from "../jsbrains/smart-cluster-groups/in
 import { ClustersVisualizerView } from "./clusters_visualizer.obsidian.js";
 import { render as render_clusters_visualizer } from "./dist/clusters_visualizer.js";
 import { CenterSelectModal } from "./center_select_modal.js";
+import { ConnectionsVisualizerView } from "./connections_visualizer.obsidian.js";
+import { render as render_connections_visualizer } from "./dist/connections_visualizer.js";
 /**
  * Main plugin class for Smart Visualizer.
  */
@@ -35,6 +37,7 @@ class SmartVisualizerPlugin extends Plugin {
       ClusterGroup,
     },
     components: {
+      connections_visualizer: render_connections_visualizer,
       cluster_groups: {
         clusters_visualizer: render_clusters_visualizer,
       }
@@ -66,12 +69,21 @@ class SmartVisualizerPlugin extends Plugin {
       },
     });
 
+    this.addCommand({
+      id: 'open-connections-visualizer',
+      name: 'Open Connections Visualizer',
+      callback: () => {
+        this.open_connections_visualizer();
+      },
+    });
+
     // Attach environment config
     wait_for_smart_env_then_init(this, this.smart_env_config).then(() => {
       // temp until sc op gets latest version of smart_env
       this.env._components = {}; // clear component cache
     });
     this.registerView(ClustersVisualizerView.view_type, (leaf) => new ClustersVisualizerView(leaf, this));
+    this.registerView(ConnectionsVisualizerView.view_type, (leaf) => new ConnectionsVisualizerView(leaf, this));
   }
 
   /**
@@ -89,6 +101,14 @@ class SmartVisualizerPlugin extends Plugin {
 
   get_cluster_visualizer_view() {
     return ClustersVisualizerView.get_view(this.app.workspace);
+  }
+
+  open_connections_visualizer() {
+    ConnectionsVisualizerView.open(this.app.workspace);
+  }
+
+  get_connections_visualizer_view() {
+    return ConnectionsVisualizerView.get_view(this.app.workspace);
   }
 
 }
