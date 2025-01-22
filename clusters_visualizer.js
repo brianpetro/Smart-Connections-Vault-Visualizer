@@ -24,8 +24,11 @@ export async function build_html(cluster_groups, opts = {}) {
          <button class="sc-create-cluster" aria-label="Create new cluster from selection">
             ${this.get_icon_html?.('group') || 'group'}
           </button>
-          <button class="sc-remove-cluster" aria-label="Remove node(s) from cluster(s) and recluster">
+          <button class="sc-remove-cluster" aria-label="Remove cluster(s)">
             ${this.get_icon_html?.('ungroup') || 'ungroup'}
+          </button>
+          <button class="sc-remove-from-cluster" aria-label="Remove node(s) from cluster">
+            ${this.get_icon_html?.('badge-x') || 'badge-x'}
           </button>
           <button class="sc-add-to-cluster" aria-label="Merge node(s) to cluster">
             ${this.get_icon_html?.('combine') || 'combine'}
@@ -90,7 +93,6 @@ export async function render(cluster_groups, opts = {}) {
     console.log('members:', members);
   }
 
-  
 
   // Build top-level HTML with <canvas> + toolbar
   const html = await build_html.call(this, cluster_groups, opts);
@@ -210,6 +212,7 @@ function updateLinks(threshold) {
   const addToClusterCenterBtn = frag.querySelector('.sc-add-to-cluster-center');
   const removeFromClusterCenterBtn = frag.querySelector('.sc-remove-cluster-center');
   const removeClusterBtn = frag.querySelector('.sc-remove-cluster');
+  const removeFromClusterBtn = frag.querySelector('.sc-remove-from-cluster');
 
   // Build node & link arrays
   const nodes = [];
@@ -238,7 +241,7 @@ function updateLinks(threshold) {
         type: 'member',
         color: '#7c8594',
         radius: 7,
-        source: member.item,
+        item: member.item,
       };
       nodes.push(node_map[member_key]);
     }
@@ -255,6 +258,7 @@ function updateLinks(threshold) {
       }
     });
   });
+  
 
   // Distance scaling
   const all_scores = links
@@ -329,6 +333,7 @@ function updateLinks(threshold) {
   let dragStartPos = null;  // The [x,y] of the pointer at drag start
   let nodeStartPositions = new Map(); 
   let isDragging = false;
+  
 
   // nodeStartPositions will map each *selected* node -> { x, y }
 
@@ -549,35 +554,55 @@ function updateLinks(threshold) {
   createClusterBtn?.addEventListener('click', async () => {
     // console.log('Create new cluster from selection.  Available when any node(s) selected - can be nodes from different clusters and orphans - 2 step process - 2nd step is to select which node(s) to be center of new cluster');
     const center = Array.from(selectedNodes.values()).reduce((acc, node) => {
-      acc[node.source.key] = {weight: 1}; 
+      acc[node.item.key] = {weight: 1}; 
       return acc;
     }, {});
-    console.log('selectedNodes ', center);
-
 
     const cluster = await cluster_group.env.clusters.create_or_update({ center });
-    console.log('cluster1', cluster);
     const new_cluster = await cluster_group.add_cluster(cluster);
-    console.log('new_cluster', new_cluster);
+
     if (typeof opts.refresh_view === 'function') {
       opts.refresh_view();
     }
+
   });
 
   addToClusterBtn?.addEventListener('click', () => {
     console.log('Move node(s) to cluster.  Available when any node(s) selected - can be nodes from different clusters and orphans - 2 step process - 2nd step is to select which cluster to add node(s) to');
   });
 
-  addToClusterCenterBtn?.addEventListener('click', () => {
+  addToClusterCenterBtn?.addEventListener('click', async () => {
     console.log('Move node(s) to cluster center. Available only for nodes that are selected + in the same cluster + not in center, unless node(s) drag and dropped into center');
+    const items = Array.from(selectedNodes.values()).map((node) => node.item);
+    const added_items = await cluster_group.add_centers(items);
+
+    if (typeof opts.refresh_view === 'function') {
+      opts.refresh_view();
+    }
   });
 
   removeFromClusterCenterBtn?.addEventListener('click', () => {
     console.log('Remove node(s) from cluster center. Available only for nodes that are selected + in cluster center - still keeps them in their respective cluster');
   });
 
-  removeClusterBtn?.addEventListener('click', () => {
+  removeClusterBtn?.addEventListener('click', async () => {
     console.log('Remove node(s) from cluster(s) and recluster. Available when any node(s) are selected + in cluster(s) - get prev snapshot on rerender to show were reclustered in UI ');
+
+      const cluster_keys = Array.from(selectedNodes.values()).map((node) => node.cluster.key);
+      const removed_clusters = await cluster_group.remove_clusters(cluster_keys);
+
+      if (typeof opts.refresh_view === 'function') {
+        opts.refresh_view();
+      }
+  });
+
+  removeFromClusterBtn?.addEventListener('click', async () => {
+        const items = Array.from(selectedNodes.values()).map((node) => node.item);
+        const removed_items = await cluster_group.remove_members(items);
+
+        if (typeof opts.refresh_view === 'function') {
+          opts.refresh_view();
+        }
   });
 
   // 1) Add "desiredAlpha" and "currentAlpha" to each node/link at creation:
@@ -675,9 +700,9 @@ function ticked() {
       context.textAlign = 'center';
       let labelText = hoveredNode.id;
       if (hoveredNode.type === 'cluster') {
-        labelText = hoveredNode.cluster?.data?.key || hoveredNode.id;
+        labelText = hoveredNode.cluster?.key || hoveredNode.id;
       } else if (hoveredNode.type === 'member') {
-        labelText = hoveredNode.source?.data?.key || hoveredNode.id;
+        labelText = hoveredNode.item?.key || hoveredNode.id;
       }
       context.fillText(
         labelText,
@@ -685,10 +710,12 @@ function ticked() {
         hoveredNode.y - hoveredNode.radius - 4
       );
     }
+    
   
     context.restore();
   }
-  
+
+
   // Utility to apply alpha to a hex color
   function hexToRgba(hex, alpha = 1) {
     if (!/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/.test(hex)) {
