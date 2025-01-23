@@ -572,15 +572,15 @@ function updateLinks(threshold) {
   }
 
   d3.select(canvas_el)
-  .on('mousedown', (event) => {
-    if (event.shiftKey) {
-      isSelecting = true;
-      const [mx, my] = d3.pointer(event, canvas_el);
-      selectionStart = transform.invert([mx, my]);
-      selectionEnd = selectionStart;
-      ticked(); // Redraw to show the selection box
-    }
-  })
+    .on('mousedown', (event) => {
+      if (event.shiftKey) {
+        isSelecting = true;
+        const [mx, my] = d3.pointer(event, canvas_el);
+        selectionStart = transform.invert([mx, my]);
+        selectionEnd = selectionStart;
+        ticked(); // Redraw to show the selection box
+      }
+    })
     .on('mousemove', (event) => {
 
       if (isDragging) {
@@ -608,6 +608,19 @@ function updateLinks(threshold) {
       }
     })
     .on('click', (event) => {
+      // if hover preview is open, close it
+      let hover_preview_elm = document.querySelector('.popover.hover-popover > *');
+      if (hover_preview_elm) {
+        const mousemove_event = new MouseEvent('mousemove', {
+          clientX: event.clientX + 1000,
+          clientY: event.clientY + 1000,
+          pageX: event.pageX + 1000,
+          pageY: event.pageY + 1000,
+          fromElement: event.target,
+          bubbles: true,
+        });
+        event.target.dispatchEvent(mousemove_event);
+      }
       if (isSelecting) return; // or check a "didBoxSelect" boolean 
 
       // Hide dropdown if it is open
@@ -620,22 +633,31 @@ function updateLinks(threshold) {
       const [sx, sy] = transform.invert([mx, my]);
       const clickedNode = findNodeAt(sx, sy, nodes, transform.k);
 
-    if (event.shiftKey) {
-      // Multi-select mode
-      if (clickedNode) {
-        if (selectedNodes.has(clickedNode)) {
-          selectedNodes.delete(clickedNode);
-        } else {
-          selectedNodes.add(clickedNode);
+      if (event.shiftKey) {
+        // Multi-select mode
+        if (clickedNode) {
+          if (selectedNodes.has(clickedNode)) {
+            selectedNodes.delete(clickedNode);
+          } else {
+            selectedNodes.add(clickedNode);
+          }
         }
+      } else {
+        // Single-select mode
+        selectedNodes.clear();
+        if (clickedNode) {
+          selectedNodes.add(clickedNode);
+          // Preview
+          console.log('clickedNode:', clickedNode);
+          view.app.workspace.trigger("hover-link", {
+            event,
+            source: view.constructor.view_type,
+            hoverParent: event.target,
+            targetEl: event.target,
+            linktext: clickedNode.item.path,
+          });
       }
-    } else {
-      // Single-select mode
-      selectedNodes.clear();
-      if (clickedNode) {
-        selectedNodes.add(clickedNode);
-      }
-    }
+        }
     ticked(); // Redraw to reflect selection changes
   });
 

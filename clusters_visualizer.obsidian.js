@@ -35,5 +35,7 @@ export class ClustersVisualizerView extends SmartEntitiesView {
     });
     this.container.empty();
     this.container.appendChild(frag);
+    this.app.workspace.registerHoverLinkSource(this.constructor.view_type, { display: this.getDisplayText(), defaultMod: false });
   }
+
 }
