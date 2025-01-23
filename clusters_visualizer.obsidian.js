@@ -3,14 +3,14 @@
  * @description Defines an Obsidian View for the Clusters Visualizer, akin to existing directories.obsidian.js or clusters.obsidian.js
  */
 
-import { SmartEntitiesView } from "../sc-obsidian/src/views/smart_entities.obsidian.js";
+import { SmartObsidianView } from "./smart_view.obsidian.js"; // copied from sc-obsidian
 
 /**
  * @class ClustersVisualizerView
- * @extends SmartEntitiesView
+ * @extends SmartObsidianView
  * @description Obsidian-specific view to host the D3-based cluster visualizer.
  */
-export class ClustersVisualizerView extends SmartEntitiesView {
+export class ClustersVisualizerView extends SmartObsidianView {
   static get view_type() { return "clusters-visualizer-view"; }
   static get display_text() { return "Clusters Visualizer"; }
   static get icon_name() { return "git-fork"; } // or any suitable icon
