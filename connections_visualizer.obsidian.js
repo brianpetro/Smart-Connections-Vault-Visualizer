@@ -38,7 +38,7 @@ export class ConnectionsVisualizerView extends ScConnectionsView {
     }
 
     if (!entity) {
-      return this.plugin?.notices?.show("no entity", "No entity found for key: " + key);
+      return this.plugin?.notices?.show("missing_entity", {key});
     }
 
     // If PDF or special logic, handle as in your code snippet
