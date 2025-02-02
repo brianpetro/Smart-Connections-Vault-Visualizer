@@ -52,6 +52,11 @@ export async function build_html(cluster_groups, opts = {}) {
             ${this.get_icon_html?.('help-circle') || '?'}
           </button>
         </div>
+        <!-- create slider for threshold -->
+        <div class="sc-threshold-slider">
+          <input type="range" id="threshold-slider" min="0" max="1" step="0.01" value="0.4" data-smart-setting="threshold">
+          <label for="threshold-slider">Threshold</label>
+        </div>
        
       </div>
       <div class="sc-visualizer-content" style="width: 100%; height: 100%;">
@@ -104,12 +109,18 @@ export async function render(view, opts = {}) {
   if (debug) {
     console.log('clusters:', clusters);
     console.log('members:', members);
+    // find member with key simon
+    const simon_member = members.find((member) => getLastSegmentWithoutExtension(member.item.key) === 'Simon');
+    console.log('simon_member:', simon_member);
   }
 
 
   // Build top-level HTML with <canvas> + toolbar
   const html = await build_html.call(this, cluster_groups, opts);
   const frag = this.create_doc_fragment(html);
+
+  this.add_settings_listeners(cluster_group, frag);
+
 
   // Grab the canvas context
   const canvas_el = frag.querySelector('.clusters-visualizer-canvas');
@@ -192,16 +203,20 @@ function centerNetwork() {
     .call(zoom_behavior.transform, transform);
 }
 
-const slider_frag = await this.render_settings({
-  threshold: {
-    setting: 'threshold',
-    type: 'slider',
-    min: 0.4,
-    max: 1.0,
-    step: 0.01,
-    value: cluster_group.settings?.threshold || 0.4,
-  }
-}, {scope: cluster_group});
+// const slider_frag = await this.render_settings({
+//   threshold: {
+//     setting: 'threshold',
+//     type: 'slider',
+//     min: 0.4,
+//     max: 1.0,
+//     step: 0.01,
+//     value: cluster_group.settings?.threshold || 0.4,
+//     name: 'Threshold',
+//     description: cluster_group.settings?.threshold
+//   }
+// }, {scope: cluster_group});
+
+
 const vis_actions = frag.querySelector('.sc-visualizer-actions');
 vis_actions.appendChild(slider_frag);
 
@@ -209,17 +224,45 @@ vis_actions.appendChild(slider_frag);
 const slider = vis_actions.querySelector('input[type="range"]'); // Locate the slider input
 const sliderValueDisplay = slider_frag.querySelector('.setting-item-description'); // Locate the display element
 
+
+// Locate the necessary elemuerySelectoents
+const settingItem = slider.parentElement.parentElement;
+const settingItemInfo = settingItem.querySelector('.setting-item-info');
+const settingItemName = settingItem.querySelector('.setting-item-name');
+const settingItemDescription = settingItem.querySelector('.setting-item-description');
+
+// Adjust the `setting-item-info` to flex-align the title and value
+settingItemInfo.style.display = 'flex';
+settingItemInfo.style.justifyContent = 'space-between';
+settingItemInfo.style.alignItems = 'center';
+
 if (slider) {
   let debounceTimeout;
 
-  slider.addEventListener('input', () => {
+  slider.addEventListener('input', (event) => {
+
+    const threshold = parseFloat(slider.value);
+
+     // Update the slider value display
+     const slider_setting_item = event.target.parentElement.parentElement;
+     const slider_setting_item_value = slider_setting_item.querySelector(
+       '.setting-item-description'
+     );
+     if (slider_setting_item_value) {
+       slider_setting_item_value.textContent = threshold.toFixed(2);
+     }
+
+     // Update the CSS custom property for the track gradient
+     const fraction =
+       (threshold - parseFloat(slider.min)) /
+       (parseFloat(slider.max) - parseFloat(slider.min));
+     slider.style.setProperty('--range-percent', fraction);
+
     clearTimeout(debounceTimeout);
+
     debounceTimeout = setTimeout(() => {
-      const threshold = parseFloat(slider.value);
-      if (sliderValueDisplay) {
-        sliderValueDisplay.textContent = threshold.toFixed(2); // Update displayed value
-      }
-      updateLinks(threshold); // Update the visualization with the new threshold
+      // Call necessary update functions
+      updateLinks(threshold);
       centerNetwork();
       cluster_group.queue_save();
     }, 100); // Adjust the debounce delay as needed
@@ -315,13 +358,13 @@ function updateLinks(threshold) {
     if (Array.isArray(cluster.centers)) {
       const childCount = cluster.centers.length;
   
-      cluster.centers.forEach((centerObj, i) => {
+      cluster.centers.forEach((item, i) => {
         // Instead of random, you might do an evenly spaced ring
         const angle = (i / childCount) * 2 * Math.PI;
         const dist = c_node.radius * 0.7;  // child ring radius, tweak as needed
   
         const childNode = {
-          id: `${centerObj.key}`,
+          id: `${item.key}`,
           type: 'center',
           color: '#d092c9',
   
@@ -331,8 +374,7 @@ function updateLinks(threshold) {
           // Keep reference to parent
           parent: c_node,
           cluster,
-          centerObj,
-  
+          item,  
           // Store stable offset
           offsetAngle: angle,
           offsetDist: dist,
@@ -343,6 +385,8 @@ function updateLinks(threshold) {
       });
     }
   });
+
+  console.log('clusters 2: ', clusters);
 
   members.forEach((member) => {
     const member_key = member.item?.key || 'unknown-member';
@@ -355,6 +399,7 @@ function updateLinks(threshold) {
         radius: 7,
         item: member.item,
       };
+
       nodes.push(node_map[member_key]);
     }
     Object.entries(member.clusters).forEach(([cl_id, cl_data]) => {
@@ -699,18 +744,30 @@ function updateLinks(threshold) {
       return acc;
     }, {});
 
-    console.log('center:', center);
-
     const cluster = await cluster_group.env.clusters.create_or_update({ center });
-    const new_cluster = await cluster_group.add_cluster(cluster);
+    await cluster_group.add_cluster(cluster);
 
     view.render_view();
 
   });
 
-  addToClusterBtn?.addEventListener('click', () => {
-    console.log('Move node(s) to cluster.  Available when any node(s) selected - can be nodes from different clusters and orphans - 2 step process - 2nd step is to select which cluster to add node(s) to');
-  });
+  // TODO: add this back in after SV and Principal Component
+  // addToClusterBtn?.addEventListener('click', async () => {
+  //   console.log('Move node(s) to cluster.  Available when any node(s) selected - can be nodes from different clusters and orphans - 2 step process - 2nd step is to select which cluster to add node(s) to');
+  //   const items = Array.from(selectedNodes.values()).map((node) => node.item);
+
+  //   // get the node of type cluster
+  //   const clusterNode = Array.from(selectedNodes.values()).find((node) => node.type === 'cluster');
+  //   if (!clusterNode) {
+  //     console.warn('No cluster node found for the selected nodes!');
+  //     return;
+  //   }
+
+  //   console.log('clusterNode:', clusterNode);
+  //   // await clusterNode.cluster.add_members(items);
+
+  //   view.render_view();
+  // });
 
   addToClusterCenterBtn?.addEventListener('click', async () => {
     console.log('Move node(s) to cluster center. Available only for nodes that are selected + in the same cluster + not in center, unless node(s) drag and dropped into center');
@@ -734,15 +791,13 @@ function updateLinks(threshold) {
     }
 
     // These could be node.item, node.centerObj, or similar, depending on how your "removeCenters" method expects data
-    const centerItems = Array.from(selectedNodes.values()).map((node) => node.centerObj);
-
-    console.log('parentCluster:', parentCluster);
-    console.log('centerItems:', centerItems);
+    const centerItems = Array.from(selectedNodes.values()).map((node) => node.item);
 
     await parentCluster.remove_centers(centerItems);
 
     view.render_view();
   });
+
 
   removeClusterBtn?.addEventListener('click', async () => {
     console.log('Remove node(s) from cluster(s) and recluster. Available when any node(s) are selected + in cluster(s) - get prev snapshot on rerender to show were reclustered in UI ');
@@ -755,20 +810,12 @@ function updateLinks(threshold) {
       view.render_view();
   });
 
-  // removeFromClusterBtn?.addEventListener('click', async () => {
-  //       const items = Array.from(selectedNodes.values()).map((node) => node.item);
-  //       const removed_items = await cluster_group.remove_members(items);
-
-      // view.render_view();
-  // });
 
 
   removeFromClusterBtn?.addEventListener('click', (e) => {
     const dropdown = e.target.parentElement.querySelector('.sc-viz-dropdown');
     const dropdownMenu = e.target.parentElement.querySelector('.sc-viz-dropdown-menu');
-    
-    console.log('dropdown: ', dropdown);
-   // Get the button's offsets relative to its nearest positioned ancestor
+       // Get the button's offsets relative to its nearest positioned ancestor
    const parentRect = removeFromClusterBtn.offsetParent.getBoundingClientRect();
    const buttonOffsetLeft = removeFromClusterBtn.offsetLeft;
    const buttonOffsetTop = removeFromClusterBtn.offsetTop + removeFromClusterBtn.offsetHeight;

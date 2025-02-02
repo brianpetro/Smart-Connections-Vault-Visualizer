@@ -113,3 +113,81 @@
   display: none;
 }
 
+.setting-item {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  background-color: #2a2a2a; /* Replace with your preferred background color */
+  border-radius: 8px;
+  border: 1px solid #3a3a3a; /* Replace with your preferred border color */
+  margin-bottom: 12px;
+  width: 100%; /* Full width */
+  gap: 8px; /* Space between items */
+}
+
+.setting-item-info {
+  display: flex; /* Align the name and description horizontally */
+  justify-content: space-between; /* Push title and value to opposite sides */
+  align-items: center; /* Vertically align the elements */
+  width: 100%; /* Ensure the full width is used */
+  margin-bottom: 8px; /* Space between header and slider */
+}
+
+.setting-item-name {
+  font-size: 14px; /* Slightly larger for emphasis */
+  font-weight: bold;
+  color: #b0b0b0; /* Adjust to your preferred color */
+}
+
+.setting-item-description {
+  font-size: 14px; /* Match the title size */
+  color: #b0b0b0;
+  text-align: left; /* Align value to the right */
+}
+
+.setting-item-header {
+  display: flex;
+  justify-content: space-between; /* Push title and value to opposite sides */
+  align-items: center;
+  width: 100%; /* Ensure full-width alignment */
+}
+
+.setting-item-name {
+  font-size: 14px; /* Slightly larger font */
+  font-weight: bold;
+  color: #b0b0b0; /* Replace with your preferred text color */
+}
+
+.setting-item-control {
+  display: flex;
+  align-items: center;
+  width: 100%; /* Full width for the slider */
+}
+
+.setting-item-control input[type='range'] {
+  width: 100%; /* Make the slider span the container */
+  margin: 0;
+  background: #3a3a3a; /* Track color */
+  height: 4px;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+/* Slider Thumb Styling */
+.setting-item-control input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 14px;
+  width: 14px;
+  background: #6a6aff; /* Thumb color */
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.setting-item-control input[type='range']::-moz-range-thumb {
+  height: 14px;
+  width: 14px;
+  background: #6a6aff; /* Thumb color */
+  border-radius: 50%;
+  cursor: pointer;
+}
