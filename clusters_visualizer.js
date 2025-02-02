@@ -47,12 +47,15 @@ export async function build_html(cluster_groups, opts = {}) {
           <button class="sc-refresh" aria-label="Refresh clusters visualization">
             ${this.get_icon_html?.('refresh-cw') || '⟳'}
           </button>
+           <!--
           <button class="sc-rebuild" aria-label="Rebuild clusters">
             ${this.get_icon_html?.('layers') || 'Rebuild'}
           </button>
+          
           <button class="sc-help" aria-label="Visualizer help">
             ${this.get_icon_html?.('help-circle') || '?'}
           </button>
+          -->
         </div>
         <!-- create slider for threshold -->
         <div class="sc-threshold-slider">
@@ -647,6 +650,14 @@ function updateLinks(threshold) {
         const [mx, my] = d3.pointer(event, canvas_el);
         const [sx, sy] = transform.invert([mx, my]);
         hoveredNode = findNodeAt(sx, sy, nodes, transform.k);
+
+        // if hovered node we want to show the hover preview, else hide it
+        // if (hoveredNode) {
+        //   handle_hover_preview(event);
+        // } else {
+        //   handle_hover_preview(event);
+        // }
+
         canvas_el.style.cursor = hoveredNode ? 'pointer' : 'default';
         ticked();
       }
@@ -661,18 +672,7 @@ function updateLinks(threshold) {
     })
     .on('click', (event) => {
       // if hover preview is open, close it
-      let hover_preview_elm = document.querySelector('.popover.hover-popover > *');
-      if (hover_preview_elm) {
-        const mousemove_event = new MouseEvent('mousemove', {
-          clientX: event.clientX + 1000,
-          clientY: event.clientY + 1000,
-          pageX: event.pageX + 1000,
-          pageY: event.pageY + 1000,
-          fromElement: event.target,
-          bubbles: true,
-        });
-        event.target.dispatchEvent(mousemove_event);
-      }
+     
       if (isSelecting) return; // or check a "didBoxSelect" boolean 
 
       // Hide dropdown if it is open
@@ -712,6 +712,21 @@ function updateLinks(threshold) {
         }
     ticked(); // Redraw to reflect selection changes
   });
+
+  function handle_hover_preview(event) {
+    let hover_preview_elm = document.querySelector('.popover.hover-popover > *');
+    if (hover_preview_elm) {
+      const mousemove_event = new MouseEvent('mousemove', {
+        clientX: event.clientX + 1000,
+        clientY: event.clientY + 1000,
+        pageX: event.pageX + 1000,
+        pageY: event.pageY + 1000,
+        fromElement: event.target,
+        bubbles: true,
+      });
+      event.target.dispatchEvent(mousemove_event);
+    }
+  }
 
 
    // --- PIN BUTTON CLICK HANDLER ---
@@ -778,8 +793,27 @@ function updateLinks(threshold) {
 
   addToClusterCenterBtn?.addEventListener('click', async () => {
     console.log('Move node(s) to cluster center. Available only for nodes that are selected + in the same cluster + not in center, unless node(s) drag and dropped into center');
-    const items = Array.from(selectedNodes.values()).map((node) => node.item);
-    await cluster_group.add_centers(items);
+    // get the items from selectedNodes of type member - using reduce to get both cluster and members
+    const {items, cluster} = Array.from(selectedNodes.values()).reduce((acc, node) => {
+      if (node.type === 'member') {
+        acc.items.push(node.item);
+      } else if (node.type === 'cluster') {
+        acc.cluster = node.cluster;
+      }
+      return acc;
+    }, {items: [], cluster: null});
+
+    // let items = Array.from(selectedNodes.values()).map((node) => node.item);
+
+    // get the cluster from items that is of type cluster
+    // const cluster = items.find((item) => item.type === 'cluster');
+
+    console.log('items:', items);
+
+    // remove the cluster from items
+    // items = items.filter((item) => item.type !== 'cluster');
+
+    await cluster.cluster.add_centers(items);
 
     view.render_view();
   });
@@ -1055,7 +1089,7 @@ nodes.forEach((node) => {
     return `rgba(${r},${g},${b},${alpha})`;
   }
 
-  return await post_process.call(this, cluster_groups, frag, opts);
+  return await post_process.call(this, view, frag, opts);
 }
 
 /**
@@ -1072,12 +1106,12 @@ export async function post_process(view, frag, opts = {}) {
       view.render_view();
     });
   }
-  const rebuild_btn = frag.querySelector('.sc-rebuild');
-  if (rebuild_btn) {
-    rebuild_btn.addEventListener('click', async () => {
-      view.render_view();
-    });
-  }
+  // const rebuild_btn = frag.querySelector('.sc-rebuild');
+  // if (rebuild_btn) {
+  //   rebuild_btn.addEventListener('click', async () => {
+  //     view.render_view();
+  //   });
+  // }
   const help_btn = frag.querySelector('.sc-help');
   if (help_btn) {
     help_btn.addEventListener('click', () => {
