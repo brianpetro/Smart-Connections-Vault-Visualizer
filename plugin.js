@@ -5,10 +5,12 @@
  */
 
 import { Plugin } from "obsidian";
-import { wait_for_smart_env_then_init } from "obsidian-smart-env";
+import {SmartEnv} from "smart-environment";
 import ajson_single_file_data_adapter from "../jsbrains/smart-collections/adapters/ajson_single_file.js";
+// import ajson_multi_file_data_adapter from "../jsbrains/smart-collections/adapters/ajson_multi_file.js";
 import { Clusters, Cluster } from "../jsbrains/smart-clusters/index.js";
 import { ClusterGroups, ClusterGroup } from "../jsbrains/smart-cluster-groups/index.js";
+
 import { ClustersVisualizerView } from "./clusters_visualizer.obsidian.js";
 import { render as render_clusters_visualizer } from "./dist/clusters_visualizer.js";
 import { CenterSelectModal } from "./center_select_modal.js";
@@ -27,10 +29,13 @@ class SmartVisualizerPlugin extends Plugin {
         class: Clusters,
         data_adapter: ajson_single_file_data_adapter,
       },
+
       cluster_groups: {
         class: ClusterGroups,
         data_adapter: ajson_single_file_data_adapter,
       }
+
+
     },
     item_types: {
       Cluster,
@@ -76,7 +81,14 @@ class SmartVisualizerPlugin extends Plugin {
     });
 
     // Attach environment config
-    wait_for_smart_env_then_init(this, this.smart_env_config).then(() => {
+    SmartEnv.wait_for({ loaded: true }).then(async () => {
+      await SmartEnv.create(this, {
+        global_prop: 'smart_env',
+        collections: {},
+        item_types: {},
+        modules: {},
+        ...this.smart_env_config,
+      });
       // temp until sc op gets latest version of smart_env
       this.env._components = {}; // clear component cache
     });
@@ -91,10 +103,13 @@ class SmartVisualizerPlugin extends Plugin {
    * Called by Obsidian when the plugin is unloaded.
    */
   onunload() {
-    this.env.unload_main("smart_visualizer_plugin");
-    this.env._components = {}; // clear component cache
+    if(this.env) {
+      this.env?.unload_main("smart_visualizer_plugin");
+      this.env._components = {}; // clear component cache
+    }
     console.log("unloaded smart_visualizer_plugin");
   }
+
 
   open_cluster_visualizer() {
     ClustersVisualizerView.open(this.app.workspace);

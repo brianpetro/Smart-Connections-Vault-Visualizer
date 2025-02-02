@@ -116,16 +116,16 @@ export class SmartObsidianView extends ItemView {
   }
   async wait_for_env_to_load() {
     if (!this.env?.collections_loaded) {
-      while(!this.env) {
-        // button to load env
-        this.containerEl.children[1].innerHTML = '<button>Load Smart Environment</button>';
-        this.containerEl.children[1].querySelector('button').addEventListener('click', () => {
-          this.plugin.load_env();
-        });
-        await new Promise(r => setTimeout(r, 2000));
-      }
+      // while(!this.env) {
+      //   // button to load env
+      //   this.containerEl.children[1].innerHTML = '<button>Load Smart Environment</button>';
+      //   this.containerEl.children[1].querySelector('button').addEventListener('click', () => {
+      //     this.plugin.load_env();
+      //   });
+      //   await new Promise(r => setTimeout(r, 2000));
+      // }
       // wait for entities to be initialized
-      while (!this.env.collections_loaded){
+      while (!this.env?.collections_loaded){
         const loading_msg = this.env?.smart_connections_plugin?.obsidian_is_syncing ? "Waiting for Obsidian Sync to finish..." : "Loading Smart Connections...";
         // set loading message
         if(this.containerEl.children[1].innerHTML !== loading_msg){
@@ -133,6 +133,7 @@ export class SmartObsidianView extends ItemView {
         }
         await new Promise(r => setTimeout(r, 2000));
       }
+      this.render_view();
     }
   }
   register_plugin_events() { /* OVERRIDE AS NEEDED */ }
