@@ -33,9 +33,11 @@ export async function build_html(cluster_groups, opts = {}) {
           <div class="sc-viz-dropdown hidden">
               <ul class="sc-viz-dropdown-menu"></ul>
             </div>
+            <!--
           <button class="sc-add-to-cluster" aria-label="Merge node(s) to cluster">
             ${this.get_icon_html?.('combine') || 'combine'}
           </button>
+          -->
           <button class="sc-add-to-cluster-center" aria-label="Move node(s) to cluster center">
             ${this.get_icon_html?.('badge-plus') || 'plus'}
           </button>
@@ -217,24 +219,28 @@ function centerNetwork() {
 // }, {scope: cluster_group});
 
 
-const vis_actions = frag.querySelector('.sc-visualizer-actions');
-vis_actions.appendChild(slider_frag);
+// const vis_actions = frag.querySelector('.sc-visualizer-actions');
+// vis_actions.appendChild(slider_frag);
 
-// Find the slider and initialize event listeners
-const slider = vis_actions.querySelector('input[type="range"]'); // Locate the slider input
-const sliderValueDisplay = slider_frag.querySelector('.setting-item-description'); // Locate the display element
+// // Find the slider and initialize event listeners
+const slider = frag.querySelector('input[type="range"]'); // Locate the slider input
+// add cluster_group.settings.threshold to the slider
+slider.value = cluster_group.settings.threshold;
+
+// const slider = vis_actions.querySelector('input[type="range"]'); // Locate the slider input
+// const sliderValueDisplay = slider_frag.querySelector('.setting-item-description'); // Locate the display element
 
 
 // Locate the necessary elemuerySelectoents
-const settingItem = slider.parentElement.parentElement;
-const settingItemInfo = settingItem.querySelector('.setting-item-info');
-const settingItemName = settingItem.querySelector('.setting-item-name');
-const settingItemDescription = settingItem.querySelector('.setting-item-description');
+// const settingItem = slider.parentElement.parentElement;
+// const settingItemInfo = settingItem.querySelector('.setting-item-info');
+// const settingItemName = settingItem.querySelector('.setting-item-name');
+// const settingItemDescription = settingItem.querySelector('.setting-item-description');
 
-// Adjust the `setting-item-info` to flex-align the title and value
-settingItemInfo.style.display = 'flex';
-settingItemInfo.style.justifyContent = 'space-between';
-settingItemInfo.style.alignItems = 'center';
+// // Adjust the `setting-item-info` to flex-align the title and value
+// settingItemInfo.style.display = 'flex';
+// settingItemInfo.style.justifyContent = 'space-between';
+// settingItemInfo.style.alignItems = 'center';
 
 if (slider) {
   let debounceTimeout;
@@ -244,19 +250,19 @@ if (slider) {
     const threshold = parseFloat(slider.value);
 
      // Update the slider value display
-     const slider_setting_item = event.target.parentElement.parentElement;
-     const slider_setting_item_value = slider_setting_item.querySelector(
-       '.setting-item-description'
-     );
-     if (slider_setting_item_value) {
-       slider_setting_item_value.textContent = threshold.toFixed(2);
-     }
+    //  const slider_setting_item = event.target.parentElement.parentElement;
+    //  const slider_setting_item_value = slider_setting_item.querySelector(
+    //    '.setting-item-description'
+    //  );
+    //  if (slider_setting_item_value) {
+    //    slider_setting_item_value.textContent = threshold.toFixed(2);
+    //  }
 
      // Update the CSS custom property for the track gradient
-     const fraction =
-       (threshold - parseFloat(slider.min)) /
-       (parseFloat(slider.max) - parseFloat(slider.min));
-     slider.style.setProperty('--range-percent', fraction);
+    //  const fraction =
+    //    (threshold - parseFloat(slider.min)) /
+    //    (parseFloat(slider.max) - parseFloat(slider.min));
+    //  slider.style.setProperty('--range-percent', fraction);
 
     clearTimeout(debounceTimeout);
 
@@ -270,6 +276,7 @@ if (slider) {
 } else {
   console.error('Slider element not found!');
 }
+
 function updateLinks(threshold) {
   const newLinks = []; // Create a temporary array for new links
 
