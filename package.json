@@ -1,6 +1,6 @@
 {
-  "name": "smart-visualizer-obsidian",
-  "version": "1.0.1",
+  "name": "smart-vault-visualizer",
+  "version": "1.0.0",
   "type": "module",
   "description": "Visualize Smart Clusters and Cluster Groups in Obsidian.",
   "scripts": {
