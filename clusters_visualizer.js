@@ -18,62 +18,71 @@ export async function build_html(cluster_groups, opts = {}) {
     <div class="sc-clusters-visualizer-view" style="width: 100%; height: 100%;">
       <div class="sc-top-bar">
         <div class="sc-visualizer-actions">
-         <button class="sc-pin" aria-label="Pin network">
-            ${this.get_icon_html?.('pin') || 'Hi'}
+          <button class="sc-pin" aria-label="Pin the network in place (disable physics)">
+            ${this.get_icon_html?.('pin') || 'pin'}
+            <span class="sc-button-label">Pin layout</span>
           </button>
-         <button class="sc-create-cluster" aria-label="Create new cluster from selection">
+          <button class="sc-create-cluster" aria-label="Create a new cluster with connections relative to the selected node(s)">
             ${this.get_icon_html?.('group') || 'group'}
+            <span class="sc-button-label">Create cluster</span>
           </button>
-          <button class="sc-remove-cluster" aria-label="Remove cluster(s)">
+          <button class="sc-remove-from-cluster" aria-label="Ungroup the selected node(s) from the selected cluster">
             ${this.get_icon_html?.('ungroup') || 'ungroup'}
+            <span class="sc-button-label">Ungroup from cluster</span>
           </button>
-          <button class="sc-remove-from-cluster" aria-label="Remove node(s) from cluster">
-            ${this.get_icon_html?.('badge-x') || 'badge-x'}
-          </button>
-          <div class="sc-viz-dropdown hidden">
-              <ul class="sc-viz-dropdown-menu"></ul>
-            </div>
-            <!--
+          <!--
           <button class="sc-add-to-cluster" aria-label="Merge node(s) to cluster">
             ${this.get_icon_html?.('combine') || 'combine'}
           </button>
           -->
-          <button class="sc-add-to-cluster-center" aria-label="Move node(s) to cluster center">
+          <button class="sc-add-to-cluster-center" aria-label="Add node(s) to cluster's center - Makes cluster connect to more notes like selection">
             ${this.get_icon_html?.('badge-plus') || 'plus'}
+            <span class="sc-button-label">Add to center</span>
           </button>
-          <button class="sc-remove-cluster-center" aria-label="Remove node(s) from cluster center">
+          <button class="sc-remove-cluster-center" aria-label="Remove node(s) from cluster's center - Make cluster connect to fewer notes like selection">
             ${this.get_icon_html?.('badge-minus') || 'minus'}
+            <span class="sc-button-label">Remove from center</span>
+          </button>
+          <button class="sc-remove-cluster" aria-label="Remove the selected cluster(s)">
+            ${this.get_icon_html?.('badge-x') || 'badge-x'}
+            <span class="sc-button-label">Remove cluster(s)</span>
           </button>
           <button class="sc-refresh" aria-label="Refresh clusters visualization">
             ${this.get_icon_html?.('refresh-cw') || '⟳'}
+            <span class="sc-button-label">Refresh viz</span>
           </button>
-           <!--
-          <button class="sc-rebuild" aria-label="Rebuild clusters">
-            ${this.get_icon_html?.('layers') || 'Rebuild'}
-          </button>
-          
-          <button class="sc-help" aria-label="Visualizer help">
-            ${this.get_icon_html?.('help-circle') || '?'}
-          </button>
-          -->
         </div>
-        <!-- create slider for threshold -->
-        <div class="sc-threshold-slider">
-          <input type="range" id="threshold-slider" min="0" max="1" step="0.01" value="0.4" data-smart-setting="threshold">
-          <label for="threshold-slider">Threshold</label>
-        </div>
-       
       </div>
+
+      <!-- Threshold slider row beneath top bar -->
+      <div class="sc-threshold-row">
+        <label for="threshold-slider" class="sc-threshold-label">
+          Threshold: <span id="threshold-value">0.4</span>
+        </label>
+        <input
+          type="range"
+          id="threshold-slider"
+          min="0"
+          max="1"
+          step="0.01"
+          value="0.4"
+          data-smart-setting="threshold"
+        />
+      </div>
+
       <div class="sc-visualizer-content" style="width: 100%; height: 100%;">
-      <canvas class="clusters-visualizer-canvas" width="100%" height="100%" 
-              style="display:block;">
-      </canvas>
+        <canvas
+          class="clusters-visualizer-canvas"
+          width="100%"
+          height="100%"
+          style="display:block;"
+        >
+        </canvas>
       </div>
     </div>
   `;
 }
 
-// HELPER: find node at the given simulation coords (sx, sy) within radius
 // HELPER: find node at the given simulation coords (sx, sy) within radius
 function findNodeAt(sx, sy, nodes, currentZoom, expandThreshold = 3.0) {
   for (let i = nodes.length - 1; i >= 0; i--) {
@@ -95,12 +104,12 @@ function findNodeAt(sx, sy, nodes, currentZoom, expandThreshold = 3.0) {
 
 
 export async function render(view, opts = {}) {
+  // Let debug logging only occur if the caller sets opts.debug
   let debug = !!opts.debug;
-  
-  const cluster_groups = view.env.cluster_groups;
-  debug = true;
-  if (debug) console.log('render() called with:', cluster_groups);
 
+  if (debug) console.log('render() called with:', view.env.cluster_groups);
+
+  const cluster_groups = view.env.cluster_groups;
   const cluster_group = Object.values(cluster_groups.items).sort((a, b) => b.key.localeCompare(a.key))[0];
   if (!cluster_group) {
     return this.create_doc_fragment('<div>No cluster group found!</div>');
@@ -115,217 +124,15 @@ export async function render(view, opts = {}) {
     console.log('clusters:', clusters);
     console.log('members:', members);
     // find member with key simon
-    const simon_member = members.find((member) => getLastSegmentWithoutExtension(member.item.key) === 'Simon');
+    const simon_member = members.find(
+      (member) => getLastSegmentWithoutExtension(member.item.key) === 'Simon'
+    );
     console.log('simon_member:', simon_member);
   }
-
 
   // Build top-level HTML with <canvas> + toolbar
   const html = await build_html.call(this, cluster_groups, opts);
   const frag = this.create_doc_fragment(html);
-
-  this.add_settings_listeners(cluster_group, frag);
-
-
-  // Grab the canvas context
-  const canvas_el = frag.querySelector('.clusters-visualizer-canvas');
-  if (!canvas_el) {
-    if (debug) console.warn('No <canvas> element found!');
-    return frag;
-  }
-  const context = canvas_el.getContext('2d');
-
-  // For the immediate container
-  const container_el = frag.querySelector('.sc-visualizer-content');
-
- // A function that resizes the <canvas> to match the container
-function resizeCanvas() {
-  const { width, height } = container_el.getBoundingClientRect();
-  canvas_el.width = width;
-  canvas_el.height = height;
-  
-  // Possibly re-draw
-  ticked();
-}
-
-
-
-// Defer measuring until it's attached to DOM
-requestAnimationFrame(() => {
-  setTimeout(() => {
-    resizeCanvas();
-    centerNetwork();
-    ticked();
-  }, 0);
-});
-
-function centerNetwork() {
-  // We'll gather min/max X/Y of all nodes
-  let minX = Infinity, maxX = -Infinity;
-  let minY = Infinity, maxY = -Infinity;
-
-  nodes.forEach((d) => {
-    if (d.x < minX) minX = d.x;
-    if (d.x > maxX) maxX = d.x;
-    if (d.y < minY) minY = d.y;
-    if (d.y > maxY) maxY = d.y;
-  });
-
-  // The current canvas size
-  const w = canvas_el.width;
-  const h = canvas_el.height;
-
-  const networkWidth = maxX - minX;
-  const networkHeight = maxY - minY;
-
-  if (networkWidth === 0 || networkHeight === 0) {
-    // If everything is at the same point, skip or just center
-    transform = d3.zoomIdentity
-      .translate(w / 2, h / 2) // Move to center of canvas
-      .scale(1);
-  } else {
-    // Optionally give 10% padding
-    const padding = 0.1;
-
-    // Figure out max scale to fit both width/height in the canvas
-    const scale = (1 - padding) / 
-      Math.max(networkWidth / w, networkHeight / h);
-
-    // Midpoints of the bounding box
-    const midX = (maxX + minX) / 2;
-    const midY = (maxY + minY) / 2;
-
-    // Translate so that (midX, midY) of the network ends up
-    // at the center of the canvas, scaled appropriately
-    transform = d3.zoomIdentity
-      .translate(w / 2, h / 2)
-      .scale(scale)
-      .translate(-midX, -midY);
-  }
-
-  // Use the zoom behavior to set this transform, so pan/zoom remains consistent
-  d3.select(canvas_el)
-    .call(zoom_behavior.transform, transform);
-}
-
-// const slider_frag = await this.render_settings({
-//   threshold: {
-//     setting: 'threshold',
-//     type: 'slider',
-//     min: 0.4,
-//     max: 1.0,
-//     step: 0.01,
-//     value: cluster_group.settings?.threshold || 0.4,
-//     name: 'Threshold',
-//     description: cluster_group.settings?.threshold
-//   }
-// }, {scope: cluster_group});
-
-
-// const vis_actions = frag.querySelector('.sc-visualizer-actions');
-// vis_actions.appendChild(slider_frag);
-
-// // Find the slider and initialize event listeners
-const slider = frag.querySelector('input[type="range"]'); // Locate the slider input
-// add cluster_group.settings.threshold to the slider
-slider.value = cluster_group.settings.threshold;
-
-// const slider = vis_actions.querySelector('input[type="range"]'); // Locate the slider input
-// const sliderValueDisplay = slider_frag.querySelector('.setting-item-description'); // Locate the display element
-
-
-// Locate the necessary elemuerySelectoents
-// const settingItem = slider.parentElement.parentElement;
-// const settingItemInfo = settingItem.querySelector('.setting-item-info');
-// const settingItemName = settingItem.querySelector('.setting-item-name');
-// const settingItemDescription = settingItem.querySelector('.setting-item-description');
-
-// // Adjust the `setting-item-info` to flex-align the title and value
-// settingItemInfo.style.display = 'flex';
-// settingItemInfo.style.justifyContent = 'space-between';
-// settingItemInfo.style.alignItems = 'center';
-
-if (slider) {
-  let debounceTimeout;
-
-  slider.addEventListener('input', (event) => {
-
-    const threshold = parseFloat(slider.value);
-
-     // Update the slider value display
-    //  const slider_setting_item = event.target.parentElement.parentElement;
-    //  const slider_setting_item_value = slider_setting_item.querySelector(
-    //    '.setting-item-description'
-    //  );
-    //  if (slider_setting_item_value) {
-    //    slider_setting_item_value.textContent = threshold.toFixed(2);
-    //  }
-
-     // Update the CSS custom property for the track gradient
-    //  const fraction =
-    //    (threshold - parseFloat(slider.min)) /
-    //    (parseFloat(slider.max) - parseFloat(slider.min));
-    //  slider.style.setProperty('--range-percent', fraction);
-
-    clearTimeout(debounceTimeout);
-
-    debounceTimeout = setTimeout(() => {
-      // Call necessary update functions
-      updateLinks(threshold);
-      centerNetwork();
-      cluster_group.queue_save();
-    }, 100); // Adjust the debounce delay as needed
-  });
-} else {
-  console.error('Slider element not found!');
-}
-
-function updateLinks(threshold) {
-  const newLinks = []; // Create a temporary array for new links
-
-  members.forEach((member) => {
-    const member_key = member.item?.key || 'unknown-member';
-    Object.entries(member.clusters).forEach(([cl_id, cl_data]) => {
-      const { score } = cl_data;
-      if (score >= threshold && node_map[cl_id]) {
-        // Check if the link already exists in the current `links` array
-        const existingLink = links.find(
-          (link) => link.source.id === cl_id && link.target.id === member_key
-        );
-
-        // Preserve existing styling if the link already exists
-        newLinks.push({
-          source: cl_id,
-          target: member_key,
-          score,
-          stroke: existingLink?.stroke || '#4c7787', // Preserve stroke color
-          currentAlpha: existingLink?.currentAlpha || 1, // Preserve alpha
-        });
-      }
-    });
-  });
-
-  // Replace the links array with the new set
-  links.length = 0; // Clear existing links
-  links.push(...newLinks); // Add the updated links
-
-  // Restart the simulation with the updated links
-  simulation.force(
-    'link',
-    d3
-      .forceLink(links)
-      .id((d) => d.id)
-      .distance((link) =>
-        typeof link.score === 'number' ? distance_scale(link.score) : 200
-      )
-  )
-  .force('center', d3.forceCenter(0, 0) )
-  .force('radial', d3.forceRadial(100, 0, 0).strength(0.05)) ;
-
-  simulation.alpha(1).restart();
-}
-  const width = canvas_el.width || 800;
-  const height = canvas_el.height || 600;
 
   // Grab the "pin" button
   const pinBtn = frag.querySelector('.sc-pin');
@@ -336,72 +143,263 @@ function updateLinks(threshold) {
   const removeClusterBtn = frag.querySelector('.sc-remove-cluster');
   const removeFromClusterBtn = frag.querySelector('.sc-remove-from-cluster');
 
-  // Build node & link arrays
+  // Helper to show/hide
+  function showButton(btn, doShow) {
+    if (!btn) return;
+    btn.style.display = doShow ? 'inline-flex' : 'none';
+  }
+
+  function updateToolbarUI() {
+    // Hide everything by default:
+    showButton(createClusterBtn, false);
+    showButton(removeFromClusterBtn, false);
+    showButton(addToClusterCenterBtn, false);
+    showButton(removeFromClusterCenterBtn, false);
+    showButton(removeClusterBtn, false);
+
+    if (debug) console.log('selectedNodes: ', selectedNodes);
+
+    // If nothing selected, we're done (pin & refresh remain visible):
+    if (selectedNodes.size === 0) {
+      return;
+    }
+
+    // Gather a count by type:
+    let memberCount = 0;
+    let clusterCount = 0;
+    let centerCount = 0;
+
+    for (const node of selectedNodes) {
+      if (node.type === 'member') memberCount++;
+      else if (node.type === 'cluster') clusterCount++;
+      else if (node.type === 'center') centerCount++;
+    }
+
+    if (debug) {
+      console.log('memberCount: ', memberCount);
+      console.log('cluster count: ', clusterCount);
+      console.log('center count: ', centerCount);
+    }
+
+    // Some short helpers:
+    const onlyMembers = (memberCount > 0 && clusterCount === 0 && centerCount === 0);
+    const onlyCenter = (centerCount > 0 && memberCount === 0 && clusterCount === 0);
+    const onlyCluster = (clusterCount > 0 && memberCount === 0 && centerCount === 0);
+
+    // 1) When node(s) of type members *only*:
+    if (onlyMembers) {
+      // Show "Create cluster"
+      showButton(createClusterBtn, true);
+    }
+
+    // 2) When node(s) of type members *AND* exactly one cluster:
+    if (memberCount > 0 && clusterCount === 1) {
+      showButton(removeFromClusterBtn, true);
+      showButton(addToClusterCenterBtn, true);
+    }
+
+    // 3) When node(s) of type center *only*:
+    if (onlyCenter) {
+      showButton(removeFromClusterCenterBtn, true);
+      showButton(removeFromClusterBtn, true);
+    }
+
+    // 4) When node(s) of type cluster *only*:
+    if (onlyCluster) {
+      showButton(removeClusterBtn, true);
+    }
+  }
+
+  // Add any listeners for your plugin settings
+  this.add_settings_listeners(cluster_group, frag);
+
+  // Grab the canvas context
+  const canvas_el = frag.querySelector('.clusters-visualizer-canvas');
+  if (!canvas_el) {
+    console.warn('No <canvas> element found!');
+    return frag;
+  }
+  const context = canvas_el.getContext('2d');
+
+  // For the immediate container
+  const container_el = frag.querySelector('.sc-visualizer-content');
+
+  function resizeCanvas() {
+    const { width, height } = container_el.getBoundingClientRect();
+    canvas_el.width = width;
+    canvas_el.height = height;
+    ticked();
+  }
+
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      resizeCanvas();
+      centerNetwork();
+      ticked();
+    }, 0);
+  });
+
+  function centerNetwork() {
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
+
+    nodes.forEach((d) => {
+      if (d.x < minX) minX = d.x;
+      if (d.x > maxX) maxX = d.x;
+      if (d.y < minY) minY = d.y;
+      if (d.y > maxY) maxY = d.y;
+    });
+
+    const w = canvas_el.width;
+    const h = canvas_el.height;
+
+    const networkWidth = maxX - minX;
+    const networkHeight = maxY - minY;
+
+    if (networkWidth === 0 || networkHeight === 0) {
+      // Everything is at the same point
+      transform = d3.zoomIdentity.translate(w / 2, h / 2).scale(1);
+    } else {
+      const padding = 0.1;
+      const scale = (1 - padding) / Math.max(networkWidth / w, networkHeight / h);
+
+      const midX = (maxX + minX) / 2;
+      const midY = (maxY + minY) / 2;
+
+      transform = d3.zoomIdentity
+        .translate(w / 2, h / 2)
+        .scale(scale)
+        .translate(-midX, -midY);
+    }
+
+    d3.select(canvas_el)
+      .call(zoom_behavior.transform, transform);
+  }
+
+  // Locate the threshold slider and value elements
+  const slider = frag.querySelector('#threshold-slider');
+  const thresholdValueSpan = frag.querySelector('#threshold-value');
+  if (slider) {
+    slider.value = cluster_group.settings?.threshold || slider.value;
+
+    let debounceTimeout;
+    slider.addEventListener('input', (event) => {
+      const threshold = parseFloat(slider.value);
+      if (thresholdValueSpan) {
+        thresholdValueSpan.textContent = threshold.toFixed(2);
+      }
+      clearTimeout(debounceTimeout);
+      debounceTimeout = setTimeout(() => {
+        updateLinks(threshold);
+        centerNetwork();
+        cluster_group.queue_save();
+      }, 100);
+    });
+  } else {
+    console.error('Slider element not found!');
+  }
+
+  function updateLinks(threshold) {
+    const newLinks = [];
+
+    members.forEach((member) => {
+      const member_key = member.item?.key || 'unknown-member';
+      Object.entries(member.clusters).forEach(([cl_id, cl_data]) => {
+        const { score } = cl_data;
+        if (score >= threshold && node_map[cl_id]) {
+          const existingLink = links.find(
+            (link) => link.source.id === cl_id && link.target.id === member_key
+          );
+
+          newLinks.push({
+            source: cl_id,
+            target: member_key,
+            score,
+            stroke: existingLink?.stroke || '#4c7787',
+            currentAlpha: existingLink?.currentAlpha || 1,
+          });
+        }
+      });
+    });
+
+    // Replace the links array
+    links.length = 0;
+    links.push(...newLinks);
+
+    // Restart the simulation with updated links
+    simulation
+      .force(
+        'link',
+        d3.forceLink(links)
+          .id((d) => d.id)
+          .distance((link) =>
+            typeof link.score === 'number' ? distance_scale(link.score) : 200
+          )
+      )
+      .force('center', d3.forceCenter(0, 0))
+      .force('radial', d3.forceRadial(100, 0, 0).strength(0.05));
+
+    simulation.alpha(1).restart();
+  }
+
   const nodes = [];
   const links = [];
   const node_map = {};
 
   function getLastSegmentWithoutExtension(fullPath) {
-    // Split on "/" to get all segments
-    const segments = fullPath.split('/'); 
-    // Take the last segment
-    const lastSegment = segments[segments.length - 1]; 
-    // Remove the file extension by replacing a period + anything until the next slash/end
-    const segmentWithoutExtension = lastSegment.replace(/\.[^/.]+$/, ''); 
-    return segmentWithoutExtension;
+    const segments = fullPath.split('/');
+    const lastSegment = segments[segments.length - 1];
+    return lastSegment.replace(/\.[^/.]+$/, '');
   }
 
   clusters.forEach((cluster) => {
-    // Main node:
+    const childCount = Array.isArray(cluster.centers) ? cluster.centers.length : 0;
+    const baseRadius = 20;
+    const growthFactor = 3;
+    const maxRadius = 70;
+    const scaledRadius = Math.min(baseRadius + childCount * growthFactor, maxRadius);
+
     const c_node = {
       id: cluster.key,
       type: 'cluster',
       color: '#926ec9',
-      radius: 20,
+      radius: scaledRadius,
       cluster: cluster,
-      children: [],   // keep track if needed
+      children: [],
     };
+
     nodes.push(c_node);
     node_map[cluster.key] = c_node;
-  
-    // Child nodes (the centers):
-    if (Array.isArray(cluster.centers)) {
-      const childCount = cluster.centers.length;
-  
+
+    if (childCount > 0) {
       cluster.centers.forEach((item, i) => {
-        // Instead of random, you might do an evenly spaced ring
         const angle = (i / childCount) * 2 * Math.PI;
-        const dist = c_node.radius * 0.7;  // child ring radius, tweak as needed
-  
+        const dist = scaledRadius * 0.7;
         const childNode = {
           id: `${item.key}`,
           type: 'center',
           color: '#d092c9',
-  
-          // Hard-code child radius smaller:
           radius: 4,
-  
-          // Keep reference to parent
           parent: c_node,
           cluster,
-          item,  
-          // Store stable offset
+          item,
           offsetAngle: angle,
           offsetDist: dist,
         };
-  
         nodes.push(childNode);
         c_node.children.push(childNode);
       });
     }
   });
 
-  console.log('clusters 2: ', clusters);
+  if (debug) console.log('clusters 2: ', clusters);
 
   members.forEach((member) => {
     const member_key = member.item?.key || 'unknown-member';
-    // Dont add members that are already in the cluster
-    if (!node_map[member_key] && clusters.some(c => c.key !== member_key)) {
+    const isAlreadyInCluster = node_map[member_key] !== undefined;
+    const isAlreadyCenter = nodes.some((n) => n.id === member_key && n.type === 'center');
+
+    if (!isAlreadyInCluster && !isAlreadyCenter) {
       node_map[member_key] = {
         id: member_key,
         type: 'member',
@@ -409,9 +407,9 @@ function updateLinks(threshold) {
         radius: 7,
         item: member.item,
       };
-
       nodes.push(node_map[member_key]);
     }
+
     Object.entries(member.clusters).forEach(([cl_id, cl_data]) => {
       const { score } = cl_data;
       const threshold = cluster_group.settings?.threshold || 0.6;
@@ -425,27 +423,23 @@ function updateLinks(threshold) {
       }
     });
   });
-  
 
-  // Distance scaling
   const all_scores = links
     .filter((l) => typeof l.score === 'number')
     .map((l) => l.score);
   const min_score = d3.min(all_scores) ?? 0.6;
   const max_score = d3.max(all_scores) ?? 1.0;
   const distance_scale = d3
-  .scalePow()
-  .exponent(2.5)      // or 3, tweak to taste
-  .domain([min_score, max_score])
-  .range([400, 40])   // bigger range difference
-  .clamp(true);
+    .scalePow()
+    .exponent(2.5)
+    .domain([min_score, max_score])
+    .range([400, 40])
+    .clamp(true);
 
-  // Build the simulation
-  const charge_strength = nodes.length > 200 ? -60 : -100;
   const simulation = d3
     .forceSimulation(nodes)
     .velocityDecay(0.9)
-    .force('charge', d3.forceManyBody().strength(-400))  // was -100
+    .force('charge', d3.forceManyBody().strength(-400))
     .force(
       'link',
       d3
@@ -455,10 +449,9 @@ function updateLinks(threshold) {
           typeof link.score === 'number' ? distance_scale(link.score) : 200
         )
     )
-    .force("childToParent", d3.forceManyBody().strength(0)) // placeholder
+    .force('childToParent', d3.forceManyBody().strength(0))
     .on('tick', ticked);
 
-  // Pre-run to stabilize
   let i = 0;
   const max_iter = opts.max_alpha_iterations || 100;
   while (simulation.alpha() > 0.1 && i < max_iter) {
@@ -470,21 +463,14 @@ function updateLinks(threshold) {
     console.log(`Pre-run after ${i} ticks, alpha=${simulation.alpha()}`);
   }
 
-  // We'll keep track of current transform for panning/zoom
   let transform = d3.zoomIdentity;
+  let pinned = false;
 
-  // --- PINNED STATE ---
-  let pinned = false; // track whether the network is pinned
-
-  // --- ZOOM Behavior ---
   const zoom_behavior = d3
     .zoom()
     .scaleExtent([0.1, 10])
     .filter((event) => {
-      // Allow zooming/panning only when Shift key is not pressed
       if (event.shiftKey) return false;
-  
-      // If pointer is over a node, skip zoom
       const [mx, my] = d3.pointer(event, canvas_el);
       const [sx, sy] = transform.invert([mx, my]);
       const node = findNodeAt(sx, sy, nodes, transform.k);
@@ -492,107 +478,91 @@ function updateLinks(threshold) {
     })
     .on('zoom', (event) => {
       transform = event.transform;
-      ticked(); // re-draw
+      ticked();
     });
 
   d3.select(canvas_el).call(zoom_behavior);
 
-  // Keep some state for dragging
-  let dragStartPos = null;  // The [x,y] of the pointer at drag start
-  let nodeStartPositions = new Map(); 
+  let dragStartPos = null;
+  let nodeStartPositions = new Map();
   let isDragging = false;
-  
 
-  // nodeStartPositions will map each *selected* node -> { x, y }
+  const drag_behavior = d3.drag()
+    .clickDistance(5)
+    .subject((event) => {
+      const [mx, my] = d3.pointer(event, canvas_el);
+      const [sx, sy] = transform.invert([mx, my]);
+      return findNodeAt(sx, sy, nodes, transform.k) || null;
+    })
+    .on('start', (event) => {
+      const node = event.subject;
+      if (!node) return;
 
-  const drag_behavior = d3.drag().clickDistance(5)  
-  .subject((event) => {
-    // The node that was clicked, if any
-    const [mx, my] = d3.pointer(event, canvas_el);
-    const [sx, sy] = transform.invert([mx, my]);
-    return findNodeAt(sx, sy, nodes, transform.k) || null;
-  })
-  .on('start', (event) => {
-    const node = event.subject;
-    if (!node) return;
+      isDragging = true;
+      hoveredNode = null;
 
-    isDragging = true;
-    hoveredNode = null; // Clear hover state immediately
+      if (pinned) {
+        node.fx = null;
+        node.fy = null;
+      }
 
-    // "Unfix" just in case pinned
-    if (pinned) {
-      node.fx = null;
-      node.fy = null;
-    }
+      if (!event.active) simulation.alphaTarget(0.1).restart();
 
-    // Standard reheat for dragging
-    if (!event.active) simulation.alphaTarget(0.1).restart();
+      const [mx, my] = d3.pointer(event, canvas_el);
+      const [sx, sy] = transform.invert([mx, my]);
+      dragStartPos = [sx, sy];
 
-    // 1) Store the pointer in simulation coords:
-    const [mx, my] = d3.pointer(event, canvas_el);
-    const [sx, sy] = transform.invert([mx, my]);
-    dragStartPos = [sx, sy];
+      if (selectedNodes.has(node)) {
+        nodeStartPositions.clear();
+        selectedNodes.forEach((sn) => {
+          nodeStartPositions.set(sn, { x: sn.x, y: sn.y });
+        });
+      } else {
+        nodeStartPositions.clear();
+        nodeStartPositions.set(node, { x: node.x, y: node.y });
+      }
+    })
+    .on('drag', (event) => {
+      if (!dragStartPos) return;
+      const [mx, my] = d3.pointer(event, canvas_el);
+      const [sx, sy] = transform.invert([mx, my]);
 
-    // 2) Keep track of each selected node's (x,y)
-    if (selectedNodes.has(node)) {
-      nodeStartPositions.clear();
-      selectedNodes.forEach((sn) => {
-        nodeStartPositions.set(sn, { x: sn.x, y: sn.y });
+      const dx = sx - dragStartPos[0];
+      const dy = sy - dragStartPos[1];
+
+      nodeStartPositions.forEach((startPos, n) => {
+        n.fx = startPos.x + dx;
+        n.fy = startPos.y + dy;
       });
-    } else {
+    })
+    .on('end', (event) => {
+      const node = event.subject;
+      if (!node) return;
+
+      if (!event.active) simulation.alphaTarget(0);
+
+      if (pinned) {
+        nodeStartPositions.forEach((_, n) => {
+          n.fx = n.x;
+          n.fy = n.y;
+        });
+      } else {
+        nodeStartPositions.forEach((_, n) => {
+          n.fx = null;
+          n.fy = null;
+        });
+      }
+
+      dragStartPos = null;
       nodeStartPositions.clear();
-      nodeStartPositions.set(node, { x: node.x, y: node.y });
-    }
-  })
-  .on('drag', (event) => {
-    if (!dragStartPos) return;
-
-    // 3) Current pointer in simulation coords
-    const [mx, my] = d3.pointer(event, canvas_el);
-    const [sx, sy] = transform.invert([mx, my]);
-
-    // 4) Delta from drag start
-    const dx = sx - dragStartPos[0];
-    const dy = sy - dragStartPos[1];
-
-    // 5) Apply that delta to each node's original position
-    nodeStartPositions.forEach((startPos, n) => {
-      n.fx = startPos.x + dx;
-      n.fy = startPos.y + dy;
+      isDragging = false;
     });
-  })
-  .on('end', (event) => {
-    const node = event.subject;
-    if (!node) return;
-
-    // Standard end-of-drag cleanup
-    if (!event.active) simulation.alphaTarget(0);
-
-    if (pinned) {
-      nodeStartPositions.forEach((_, n) => {
-        n.fx = n.x;
-        n.fy = n.y;
-      });
-    } else {
-      nodeStartPositions.forEach((_, n) => {
-        n.fx = null;
-        n.fy = null;
-      });
-    }
-
-    dragStartPos = null;
-    nodeStartPositions.clear();
-    isDragging = false;
-  });
-
 
   d3.select(canvas_el).call(drag_behavior);
 
-  // For hover state
   let hoveredNode = null;
-
-  // For selection (if you have that from previous snippet)
   const selectedNodes = new Set();
+  updateToolbarUI();
 
   let isSelecting = false;
   let selectionStart = null;
@@ -600,15 +570,13 @@ function updateLinks(threshold) {
 
   function updateSelection(isShiftKey) {
     if (!selectionStart || !selectionEnd) return;
-  
     const [x0, y0] = selectionStart;
     const [x1, y1] = selectionEnd;
     const minX = Math.min(x0, x1);
     const maxX = Math.max(x0, x1);
     const minY = Math.min(y0, y1);
     const maxY = Math.max(y0, y1);
-  
-    // Gather the nodes in the box
+
     const inBox = [];
     nodes.forEach((node) => {
       const { x, y } = node;
@@ -616,8 +584,7 @@ function updateLinks(threshold) {
         inBox.push(node);
       }
     });
-  
-    // If SHIFT is pressed, add them to existing selection:
+
     if (isShiftKey) {
       inBox.forEach((node) => selectedNodes.add(node));
     } else {
@@ -633,54 +600,49 @@ function updateLinks(threshold) {
         const [mx, my] = d3.pointer(event, canvas_el);
         selectionStart = transform.invert([mx, my]);
         selectionEnd = selectionStart;
-        ticked(); // Redraw to show the selection box
+        ticked();
       }
     })
     .on('mousemove', (event) => {
-
       if (isDragging) {
         return;
       }
-
       if (isSelecting) {
         const [mx, my] = d3.pointer(event, canvas_el);
         selectionEnd = transform.invert([mx, my]);
-        ticked(); // Redraw to update the selection box
+        ticked();
       } else {
         const [mx, my] = d3.pointer(event, canvas_el);
         const [sx, sy] = transform.invert([mx, my]);
         hoveredNode = findNodeAt(sx, sy, nodes, transform.k);
-
-        // if hovered node we want to show the hover preview, else hide it
-        // if (hoveredNode) {
-        //   handle_hover_preview(event);
-        // } else {
-        //   handle_hover_preview(event);
-        // }
-
         canvas_el.style.cursor = hoveredNode ? 'pointer' : 'default';
         ticked();
       }
-     
     })
-    .on('mouseup',(event) => {
+    .on('mouseup', (event) => {
       if (isSelecting) {
         isSelecting = false;
-        updateSelection(event.shiftKey); // pass shift info
-        ticked(); // Redraw to reflect selected nodes
+        updateSelection(event.shiftKey);
+        updateToolbarUI();
+        ticked();
       }
     })
     .on('click', (event) => {
-      // if hover preview is open, close it
-     
-      if (isSelecting) return; // or check a "didBoxSelect" boolean 
 
-      // Hide dropdown if it is open
-      const dropdown = event.target.parentElement.parentElement.querySelector('.sc-viz-dropdown');
-      if (!dropdown.classList.contains('hidden') && !removeFromClusterBtn.contains(event.target) && !dropdown.contains(event.target)) {
-        dropdown.classList.add('hidden');
+      let hover_preview_elm = document.querySelector('.popover.hover-popover > *');
+      if (hover_preview_elm) {
+        const mousemove_event = new MouseEvent('mousemove', {
+          clientX: event.clientX + 1000,
+          clientY: event.clientY + 1000,
+          pageX: event.pageX + 1000,
+          pageY: event.pageY + 1000,
+          fromElement: event.target,
+          bubbles: true,
+        });
+        event.target.dispatchEvent(mousemove_event);
       }
 
+      if (isSelecting) return;
       const [mx, my] = d3.pointer(event, canvas_el);
       const [sx, sy] = transform.invert([mx, my]);
       const clickedNode = findNodeAt(sx, sy, nodes, transform.k);
@@ -699,342 +661,121 @@ function updateLinks(threshold) {
         selectedNodes.clear();
         if (clickedNode) {
           selectedNodes.add(clickedNode);
-          // Preview
-          console.log('clickedNode:', clickedNode);
-          view.app.workspace.trigger("hover-link", {
-            event,
-            source: view.constructor.view_type,
-            hoverParent: event.target,
-            targetEl: event.target,
-            linktext: clickedNode.item.path,
-          });
-      }
+
+          // Use plugin instance reference:
+          if (clickedNode.item?.path) {
+            view.app.workspace.trigger('hover-link', {
+              event,
+              source: view.constructor.view_type,
+              hoverParent: event.target,
+              targetEl: event.target,
+              linktext: clickedNode.item.path,
+            });
+          }
         }
-    ticked(); // Redraw to reflect selection changes
-  });
-
-  function handle_hover_preview(event) {
-    let hover_preview_elm = document.querySelector('.popover.hover-popover > *');
-    if (hover_preview_elm) {
-      const mousemove_event = new MouseEvent('mousemove', {
-        clientX: event.clientX + 1000,
-        clientY: event.clientY + 1000,
-        pageX: event.pageX + 1000,
-        pageY: event.pageY + 1000,
-        fromElement: event.target,
-        bubbles: true,
-      });
-      event.target.dispatchEvent(mousemove_event);
-    }
-  }
-
-
-   // --- PIN BUTTON CLICK HANDLER ---
-   pinBtn?.addEventListener('click', () => {
-    pinned = !pinned;
-  
-    if (pinned) {
-      // Instead of simulation.stop():
-      simulation.alpha(0).alphaTarget(0);
-      // fix all nodes:
-      nodes.forEach((n) => {
-        n.fx = n.x;
-        n.fy = n.y;
-        // zero out velocity so they don’t keep drifting
-        n.vx = 0;
-        n.vy = 0;
-      });
-      pinBtn.innerHTML = this.get_icon_html?.('pin-off') ?? 'pin-off';
-    } else {
-      // Unpin:
-      nodes.forEach((n) => {
-        n.fx = null;
-        n.fy = null;
-        n.vx = 0;
-        n.vy = 0;
-      });
-      // "Reheat" the simulation
-      simulation.alpha(0.8).restart();
-      pinBtn.innerHTML = this.get_icon_html?.('pin') ?? 'pin';
-    }
-  });
-
-  createClusterBtn?.addEventListener('click', async () => {
-    // console.log('Create new cluster from selection.  Available when any node(s) selected - can be nodes from different clusters and orphans - 2 step process - 2nd step is to select which node(s) to be center of new cluster');
-    const center = Array.from(selectedNodes.values()).reduce((acc, node) => {
-      acc[node.item.key] = {weight: 1}; 
-      return acc;
-    }, {});
-
-    const cluster = await cluster_group.env.clusters.create_or_update({ center });
-    await cluster_group.add_cluster(cluster);
-
-    view.render_view();
-
-  });
-
-  // TODO: add this back in after SV and Principal Component
-  // addToClusterBtn?.addEventListener('click', async () => {
-  //   console.log('Move node(s) to cluster.  Available when any node(s) selected - can be nodes from different clusters and orphans - 2 step process - 2nd step is to select which cluster to add node(s) to');
-  //   const items = Array.from(selectedNodes.values()).map((node) => node.item);
-
-  //   // get the node of type cluster
-  //   const clusterNode = Array.from(selectedNodes.values()).find((node) => node.type === 'cluster');
-  //   if (!clusterNode) {
-  //     console.warn('No cluster node found for the selected nodes!');
-  //     return;
-  //   }
-
-  //   console.log('clusterNode:', clusterNode);
-  //   // await clusterNode.cluster.add_members(items);
-
-  //   view.render_view();
-  // });
-
-  addToClusterCenterBtn?.addEventListener('click', async () => {
-    console.log('Move node(s) to cluster center. Available only for nodes that are selected + in the same cluster + not in center, unless node(s) drag and dropped into center');
-    // get the items from selectedNodes of type member - using reduce to get both cluster and members
-    const {items, cluster} = Array.from(selectedNodes.values()).reduce((acc, node) => {
-      if (node.type === 'member') {
-        acc.items.push(node.item);
-      } else if (node.type === 'cluster') {
-        acc.cluster = node.cluster;
       }
-      return acc;
-    }, {items: [], cluster: null});
-
-    // let items = Array.from(selectedNodes.values()).map((node) => node.item);
-
-    // get the cluster from items that is of type cluster
-    // const cluster = items.find((item) => item.type === 'cluster');
-
-    console.log('items:', items);
-
-    // remove the cluster from items
-    // items = items.filter((item) => item.type !== 'cluster');
-
-    await cluster.cluster.add_centers(items);
-
-    view.render_view();
-  });
-
-  removeFromClusterCenterBtn?.addEventListener('click', async () => {
-    console.log('Remove node(s) from cluster center. Available only for nodes that are selected + in cluster center - still keeps them in their respective cluster');
-    const nodes = Array.from(selectedNodes.values());
-    if (!nodes.length) return;
-
-     // Since all selected centers share the same parent cluster, just grab the first node's parent:
-    const parentNode = nodes[0].parent;
-    const parentCluster = parentNode?.cluster;
-    if (!parentCluster) {
-      console.warn('No parent cluster found for the selected nodes!');
-      return;
-    }
-
-    // These could be node.item, node.centerObj, or similar, depending on how your "removeCenters" method expects data
-    const centerItems = Array.from(selectedNodes.values()).map((node) => node.item);
-
-    await parentCluster.remove_centers(centerItems);
-
-    view.render_view();
-  });
-
-
-  removeClusterBtn?.addEventListener('click', async () => {
-    console.log('Remove node(s) from cluster(s) and recluster. Available when any node(s) are selected + in cluster(s) - get prev snapshot on rerender to show were reclustered in UI ');
-
-      const clusters = Array.from(selectedNodes.values()).map((node) => node.cluster);
-      
-      console.log('clusters removed:', clusters);
-      await cluster_group.remove_clusters(clusters);
-
-      view.render_view();
-  });
-
-
-
-  removeFromClusterBtn?.addEventListener('click', (e) => {
-    const dropdown = e.target.parentElement.querySelector('.sc-viz-dropdown');
-    const dropdownMenu = e.target.parentElement.querySelector('.sc-viz-dropdown-menu');
-       // Get the button's offsets relative to its nearest positioned ancestor
-   const parentRect = removeFromClusterBtn.offsetParent.getBoundingClientRect();
-   const buttonOffsetLeft = removeFromClusterBtn.offsetLeft;
-   const buttonOffsetTop = removeFromClusterBtn.offsetTop + removeFromClusterBtn.offsetHeight;
- 
-   // Position the dropdown
-   if (dropdown.classList.contains('hidden')) {
-     dropdown.style.position = 'absolute';
-     dropdown.style.top = `${buttonOffsetTop}px`; // Below the button
-     dropdown.style.left = `${buttonOffsetLeft}px`; // Align with the button
-     dropdown.style.minWidth = `${removeFromClusterBtn.offsetWidth}px`; // Match button width
-     dropdown.style.zIndex = '10000'; // Ensure on top
-     dropdown.style.zIndex = '10000'; // Ensure it is on top
-      
-     dropdown.classList.remove('hidden'); // Show the dropdown
-    } else {
-     dropdown.classList.add('hidden'); // Hide the dropdown
-    }
-  
-    // Clear and populate the dropdown menu
-    dropdownMenu.innerHTML = ''; // Clear existing items
-    clusters.forEach((cluster) => {
-      const menuItem = document.createElement('li');
-      menuItem.textContent = getLastSegmentWithoutExtension(cluster.name) || cluster.name;
-      menuItem.classList.add('sc-viz-dropdown-item');
-      dropdownMenu.appendChild(menuItem);
-  
-      // Add click event for each dropdown item
-      menuItem.addEventListener('click', () => {
-        dropdown.classList.add('hidden'); // Hide the dropdown after selection
-        handleClusterItemSelected(cluster.name); // Handle selection
-      });
+      updateToolbarUI();
+      ticked();
     });
-  
-    // Append dropdown to body
-    if (!document.body.contains(dropdown)) {
-      document.body.appendChild(dropdown);
-    }
-  });
-  
-  // Function to handle cluster item selection
-  async function handleClusterItemSelected(selectedKey) {
-    console.log(`Selected cluster key: ${selectedKey}`);
-    const items = Array.from(selectedNodes.values()).map((node) => node.item);
-    const cluster = clusters.find((c) => c.name == selectedKey);
-    const removed_items = await cluster.remove_members(items);
-    view.render_view();
-  }
 
-  // 1) Add "desiredAlpha" and "currentAlpha" to each node/link at creation:
-nodes.forEach(node => {
-  node.desiredAlpha = 1; 
-  node.currentAlpha = 1; 
-});
+  // Utility for the main draw loop
+  function ticked() {
+    const w = canvas_el.width;
+    const h = canvas_el.height;
+    context.clearRect(0, 0, w, h);
+    context.save();
+    context.translate(transform.x, transform.y);
+    context.scale(transform.k, transform.k);
 
-links.forEach(link => {
-  link.desiredAlpha = 1;
-  link.currentAlpha = 1;
-});
-
-  // 2) In ticked(), once you've determined connected sets:
-function ticked() {
-  const w = canvas_el.width;
-  const h = canvas_el.height;
-
-  context.clearRect(0, 0, w, h);
-  context.save();
-  context.translate(transform.x, transform.y);
-  context.scale(transform.k, transform.k);
-
-  // 1) Position child nodes at parent's location (or near it)
-  nodes.forEach((node) => {
-    if (node.type === 'center') {
-      // Move child to parent's position + its stable offset
-      node.x = node.parent.x + node.offsetDist * Math.cos(node.offsetAngle);
-      node.y = node.parent.y + node.offsetDist * Math.sin(node.offsetAngle);
-  
-      // Optionally keep child node pinned so the force sim won't push it away
-      node.fx = node.x;
-      node.fy = node.y;
-    }
-  });
-
-  // Decide which nodes/links are "highlighted"
-  const connectedNodes = new Set();
-  const connectedLinks = new Set();
-
-  if (hoveredNode) {
-    connectedNodes.add(hoveredNode);
-    links.forEach(link => {
-      if (link.source === hoveredNode || link.target === hoveredNode) {
-        connectedLinks.add(link);
-        connectedNodes.add(link.source);
-        connectedNodes.add(link.target);
+    // Position child nodes at parent's location (or near it)
+    nodes.forEach((node) => {
+      if (node.type === 'center') {
+        node.x = node.parent.x + node.offsetDist * Math.cos(node.offsetAngle);
+        node.y = node.parent.y + node.offsetDist * Math.sin(node.offsetAngle);
+        node.fx = node.x;
+        node.fy = node.y;
       }
     });
-  }
 
-  // Update desiredAlpha based on highlight
-  nodes.forEach(node => {
-    node.desiredAlpha = hoveredNode 
-      ? (connectedNodes.has(node) ? 1.0 : 0.1) 
-      : 1.0; // If no hover, go full strength
-  });
-  links.forEach(link => {
-    link.desiredAlpha = hoveredNode 
-      ? (connectedLinks.has(link) ? 1.0 : 0.05)
-      : 1.0; 
-  });
-
-  // 3) Animate currentAlpha -> desiredAlpha and draw links
-  links.forEach(link => {
-    link.currentAlpha += (link.desiredAlpha - link.currentAlpha) * 0.15;
-    context.beginPath();
-    // Example: fade stroke color
-    const alphaStroke = `rgba(76,119,135,${link.currentAlpha})`; 
-    context.strokeStyle = alphaStroke;
-    context.lineWidth = link.currentAlpha > 0.5 ? 1.2 : 1;
-    context.moveTo(link.source.x, link.source.y);
-    context.lineTo(link.target.x, link.target.y);
-    context.stroke();
-  });
-
-
-  // After context transform...
-const currentZoom = transform.k;  // e.g. from your zoom behavior
-const expandThreshold = 3.0;      // choose a threshold
-
-nodes.forEach((node) => {
-  node.currentAlpha += (node.desiredAlpha - node.currentAlpha) * 0.15;
-
-  // Decide how to draw:
-  if (node.type === 'cluster') {
-    // If zoom < threshold, draw cluster normally
-    if (currentZoom < expandThreshold) {
-      context.beginPath();
-      context.fillStyle = hexToRgba(node.color, node.currentAlpha);
-      context.arc(node.x, node.y, node.radius, 0, 2 * Math.PI);
-      context.fill();
-      if (selectedNodes.has(node)) {
-        context.lineWidth = 3;
-        context.strokeStyle = '#ff9800';
-        context.stroke();
-      }
-    } else {
-      // We are zoomed in, so fade out cluster
-      context.beginPath();
-      context.fillStyle = hexToRgba(node.color, 0.5); // mostly transparent
-      context.arc(node.x, node.y, node.radius, 0, 2 * Math.PI);
-      context.fill();
+    // Determine highlights
+    const connectedNodes = new Set();
+    const connectedLinks = new Set();
+    if (hoveredNode) {
+      connectedNodes.add(hoveredNode);
+      links.forEach((link) => {
+        if (link.source === hoveredNode || link.target === hoveredNode) {
+          connectedLinks.add(link);
+          connectedNodes.add(link.source);
+          connectedNodes.add(link.target);
+        }
+      });
     }
-  } else if (node.type === 'center') {
-    // Only draw child center if zoom >= threshold
-    if (currentZoom >= expandThreshold) {
+
+    // Animate fade for links
+    links.forEach((link) => {
+      link.desiredAlpha = hoveredNode
+        ? (connectedLinks.has(link) ? 1.0 : 0.05)
+        : 1.0;
+      link.currentAlpha = link.currentAlpha || link.desiredAlpha;
+      link.currentAlpha += (link.desiredAlpha - link.currentAlpha) * 0.15;
+
       context.beginPath();
-      context.fillStyle = hexToRgba(node.color, node.currentAlpha);
-      context.arc(node.x, node.y, node.radius, 0, 2 * Math.PI);
-      context.fill();
-      if (selectedNodes.has(node)) {
-        context.lineWidth = 3;
-        context.strokeStyle = '#ff9800';
-        context.stroke();
-      }
-    }
-  } else {
-    // Regular members, always drawn
-    context.beginPath();
-    context.fillStyle = hexToRgba(node.color, node.currentAlpha);
-    context.arc(node.x, node.y, node.radius, 0, 2 * Math.PI);
-    context.fill();
-    if (selectedNodes.has(node)) {
-      context.lineWidth = 3;
-      context.strokeStyle = '#ff9800';
+      context.strokeStyle = `rgba(76,119,135,${link.currentAlpha})`;
+      context.lineWidth = link.currentAlpha > 0.5 ? 1.2 : 1;
+      context.moveTo(link.source.x, link.source.y);
+      context.lineTo(link.target.x, link.target.y);
       context.stroke();
-    }
-  }
-});
-  
-    // --- 4) (Optional) Draw selection box if user is shift‐dragging ---
+    });
+
+    // Animate fade for nodes
+    nodes.forEach((node) => {
+      node.desiredAlpha = hoveredNode
+        ? (connectedNodes.has(node) ? 1.0 : 0.1)
+        : 1.0;
+      node.currentAlpha = node.currentAlpha || node.desiredAlpha;
+      node.currentAlpha += (node.desiredAlpha - node.currentAlpha) * 0.15;
+
+      context.beginPath();
+      if (node.type === 'cluster') {
+        if (transform.k < 3.0) {
+          context.fillStyle = hexToRgba(node.color, node.currentAlpha);
+          context.arc(node.x, node.y, node.radius, 0, 2 * Math.PI);
+          context.fill();
+          if (selectedNodes.has(node)) {
+            context.lineWidth = 3;
+            context.strokeStyle = '#ff9800';
+            context.stroke();
+          }
+        } else {
+          // Zoomed in, fade out cluster circle
+          context.fillStyle = hexToRgba(node.color, 0.5);
+          context.arc(node.x, node.y, node.radius, 0, 2 * Math.PI);
+          context.fill();
+        }
+      } else if (node.type === 'center') {
+        if (transform.k >= 3.0) {
+          context.fillStyle = hexToRgba(node.color, node.currentAlpha);
+          context.arc(node.x, node.y, node.radius, 0, 2 * Math.PI);
+          context.fill();
+          if (selectedNodes.has(node)) {
+            context.lineWidth = 3;
+            context.strokeStyle = '#ff9800';
+            context.stroke();
+          }
+        }
+      } else {
+        context.fillStyle = hexToRgba(node.color, node.currentAlpha);
+        context.arc(node.x, node.y, node.radius, 0, 2 * Math.PI);
+        context.fill();
+        if (selectedNodes.has(node)) {
+          context.lineWidth = 3;
+          context.strokeStyle = '#ff9800';
+          context.stroke();
+        }
+      }
+    });
+
+    // Selection box
     if (isSelecting && selectionStart && selectionEnd) {
       context.beginPath();
       context.strokeStyle = '#009688';
@@ -1044,8 +785,8 @@ nodes.forEach((node) => {
       context.rect(x0, y0, x1 - x0, y1 - y0);
       context.stroke();
     }
-  
-    // --- 5) Show label for hovered node ---
+
+    // Show label for hovered node
     if (hoveredNode) {
       context.beginPath();
       context.fillStyle = '#ccc';
@@ -1065,36 +806,133 @@ nodes.forEach((node) => {
         hoveredNode.y - hoveredNode.radius - 4
       );
     }
-    
-  
+
     context.restore();
   }
-
 
   // Utility to apply alpha to a hex color
   function hexToRgba(hex, alpha = 1) {
     if (!/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/.test(hex)) {
-      // Fallback if something unexpected
       return `rgba(0,0,0,${alpha})`;
     }
-    // Strip leading #
     hex = hex.slice(1);
-    // If shorthand (e.g. #abc), expand to full form (#aabbcc)
     if (hex.length === 3) {
-      hex = hex.split('').map(ch => ch + ch).join('');
+      hex = hex.split('').map((ch) => ch + ch).join('');
     }
-    const r = parseInt(hex.substr(0,2), 16);
-    const g = parseInt(hex.substr(2,2), 16);
-    const b = parseInt(hex.substr(4,2), 16);
+    const r = parseInt(hex.substr(0, 2), 16);
+    const g = parseInt(hex.substr(2, 2), 16);
+    const b = parseInt(hex.substr(4, 2), 16);
     return `rgba(${r},${g},${b},${alpha})`;
   }
+
+  // --- Pin button ---
+  pinBtn?.addEventListener('click', () => {
+    pinned = !pinned;
+    if (pinned) {
+      simulation.alpha(0).alphaTarget(0);
+      nodes.forEach((n) => {
+        n.fx = n.x;
+        n.fy = n.y;
+        n.vx = 0;
+        n.vy = 0;
+      });
+      pinBtn.innerHTML = this.get_icon_html?.('pin-off') ?? 'pin-off';
+    } else {
+      nodes.forEach((n) => {
+        n.fx = null;
+        n.fy = null;
+        n.vx = 0;
+        n.vy = 0;
+      });
+      simulation.alpha(0.8).restart();
+      pinBtn.innerHTML = this.get_icon_html?.('pin') ?? 'pin';
+    }
+  });
+
+  // --- Create cluster ---
+  createClusterBtn?.addEventListener('click', async () => {
+    if (debug) console.log('Create new cluster from selection');
+    const center = Array.from(selectedNodes.values()).reduce((acc, node) => {
+      acc[node.item.key] = { weight: 1 };
+      return acc;
+    }, {});
+
+    const cluster = await cluster_group.env.clusters.create_or_update({ center });
+    await cluster_group.add_cluster(cluster);
+    view.render_view();
+  });
+
+  // Add to cluster center
+  addToClusterCenterBtn?.addEventListener('click', async () => {
+    if (debug) console.log('Move node(s) to cluster center');
+    const { items, cluster } = Array.from(selectedNodes.values()).reduce(
+      (acc, node) => {
+        if (node.type === 'member') {
+          acc.items.push(node.item);
+        } else if (node.type === 'cluster') {
+          acc.cluster = node.cluster;
+        }
+        return acc;
+      },
+      { items: [], cluster: null }
+    );
+
+    if (debug) console.log('items:', items);
+    await cluster.add_centers(items);
+    view.render_view();
+  });
+
+  // Remove from cluster center
+  removeFromClusterCenterBtn?.addEventListener('click', async () => {
+    if (debug) console.log('Remove node(s) from cluster center');
+    const nodesArr = Array.from(selectedNodes.values());
+    if (!nodesArr.length) return;
+
+    const parentNode = nodesArr[0].parent;
+    const parentCluster = parentNode?.cluster;
+    if (!parentCluster) {
+      console.warn('No parent cluster found for the selected nodes!');
+      return;
+    }
+
+    const centerItems = nodesArr.map((node) => node.item);
+    await parentCluster.remove_centers(centerItems);
+    view.render_view();
+  });
+
+  // Remove entire cluster
+  removeClusterBtn?.addEventListener('click', async () => {
+    if (debug) console.log('Remove node(s) from cluster(s)');
+    const clArr = Array.from(selectedNodes.values()).map((node) => node.cluster);
+    if (debug) console.log('clusters removed:', clArr);
+    await cluster_group.remove_clusters(clArr);
+    view.render_view();
+  });
+
+  // Ungroup from cluster
+  removeFromClusterBtn?.addEventListener('click', async (e) => {
+    if (debug) console.log('Ungroup selected node(s) from cluster');
+    const { items, cluster } = Array.from(selectedNodes.values()).reduce(
+      (acc, node) => {
+        if (node.type === 'member') {
+          acc.items.push(node.item);
+        } else if (node.type === 'cluster') {
+          acc.cluster = node.cluster;
+        }
+        return acc;
+      },
+      { items: [], cluster: null }
+    );
+    await cluster.remove_members(items);
+    view.render_view();
+  });
 
   return await post_process.call(this, view, frag, opts);
 }
 
 /**
- * Post-process function: binds refresh, rebuild, help buttons.
- * @param {Object} cluster_groups
+ * Post-process function: binds refresh/help buttons, etc.
+ * @param {Object} view
  * @param {HTMLElement} frag
  * @param {Object} [opts]
  * @returns {Promise<HTMLElement>}
@@ -1106,12 +944,6 @@ export async function post_process(view, frag, opts = {}) {
       view.render_view();
     });
   }
-  // const rebuild_btn = frag.querySelector('.sc-rebuild');
-  // if (rebuild_btn) {
-  //   rebuild_btn.addEventListener('click', async () => {
-  //     view.render_view();
-  //   });
-  // }
   const help_btn = frag.querySelector('.sc-help');
   if (help_btn) {
     help_btn.addEventListener('click', () => {
