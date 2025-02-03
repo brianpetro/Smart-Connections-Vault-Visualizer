@@ -24,16 +24,6 @@ if(!fs.existsSync(path.join(process.cwd(), 'dist'))) {
     // watch: true, // if you want watch mode
   });
 
-  await esbuild.build({
-    entryPoints: ['./connections_visualizer.js'],
-    outfile: './dist/connections_visualizer.js',
-    bundle: true,
-    format: 'esm',   // or 'iife' if you prefer
-    platform: 'node',
-    sourcemap: true,
-    external: ['obsidian'], 
-  });
-
   console.log('clusters_visualizer build success');
   
   const main_path = path.join(process.cwd(), 'dist', 'main.js');
