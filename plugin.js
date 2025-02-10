@@ -53,7 +53,7 @@ class SmartVisualizerPlugin extends Plugin {
     // Command to open the side panel
     this.addCommand({
       id: "open-smart-vault-visualizer-view",
-      name: "Open Smart Vault Visualizer View",
+      name: "Open smart vault visualizer view",
       callback: () => {
         ClustersVisualizerView.open(this.app.workspace);
       },
@@ -62,12 +62,20 @@ class SmartVisualizerPlugin extends Plugin {
     // Command to open center select modal
     this.addCommand({
       id: 'open-center-select-modal',
-      name: 'Select Cluster Centers',
+      name: 'Select cluster centers',
       callback: () => {
         const modal = new CenterSelectModal(this.app, this);
         modal.open();
       },
     });
+
+    // this.addCommand({
+    //   id: 'open-connections-visualizer',
+    //   name: 'Open Connections Visualizer',
+    //   callback: () => {
+    //     this.open_connections_visualizer();
+    //   },
+    // });
 
     // Attach environment config
     SmartEnv.wait_for({ loaded: true }).then(async () => {
@@ -82,7 +90,6 @@ class SmartVisualizerPlugin extends Plugin {
       this.env._components = {}; // clear component cache
     });
     this.registerView(ClustersVisualizerView.view_type, (leaf) => new ClustersVisualizerView(leaf, this));
-    this.registerView(ConnectionsVisualizerView.view_type, (leaf) => new ConnectionsVisualizerView(leaf, this));
     this.addRibbonIcon('git-fork', 'Open smart connections visualizer', (evt) => {
       this.open_connections_visualizer();
     });
