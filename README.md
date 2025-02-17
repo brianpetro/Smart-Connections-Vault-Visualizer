@@ -87,7 +87,7 @@ If you have used [Smart Connections Visualizer](https://github.com/Mossy1022/Sma
 Once installed, open the **Smart Visualizer View**:
 
 1. **Select Cluster Centers**  
-   - Open the command pallet and select "Select Cluster Centers".  Pick the notes you want to be at the center of each cluster
+   - Open the command pallet and select "Select Cluster Centers".  Pick the notes you want to be at the center of each cluster, then click "Select Cluster Centers" at the top of the list
 2. **Explore Your Clusters**  
    - The plugin automatically queries your vault for cluster data (via Smart Connections) and renders it into an interactive map.  
 3. **Hover, Pin, and Adjust**  
