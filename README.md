@@ -93,12 +93,11 @@ Once installed, open the **Smart Visualizer View**:
 3. **Hover, Pin, and Adjust**  
    - Hover over nodes to see names. Shift-click to select multiple notes or clusters. Adjust the threshold slider to show/hide certain links.
 4. **Modify Clusters**
-   - Via selecting on different nodes and cluster centers you can
-           1. Add notes to the center of the cluster -  Makes cluster connect to more notes like selection
-           2. Remove node(s) from cluster's center - Make cluster connect to fewer notes like selection (via zooming into central node and selecting the nodes within the central node to remove)
-           3. Remove the selected cluster (via selecting the central node)
-           4. Create new clusters from notes (via selecting node(s))
-           5. Remove nodes from cluster (via selecting nodes and the central node they are clustered with)
+    1. Add notes to the center of the cluster -  Makes cluster connect to more notes like selection
+    2. Remove node(s) from cluster's center - Make cluster connect to fewer notes like selection (via zooming into central node and selecting the nodes within the central node to remove)
+    3. Remove the selected cluster (via selecting the central node)
+    4. Create new clusters from notes (via selecting node(s))
+    5. Remove nodes from cluster (via selecting nodes and the central node they are clustered with)
         
 > **Tip**: If you don’t see any clusters, be sure to configure Smart Connections first. This plugin reads existing cluster definitions and membership info.
 
