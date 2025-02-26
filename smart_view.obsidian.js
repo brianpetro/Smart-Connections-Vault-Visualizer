@@ -127,9 +127,9 @@ export class SmartObsidianView extends ItemView {
       // wait for entities to be initialized
       while (!this.env?.collections_loaded){
         const loading_msg = this.env?.smart_connections_plugin?.obsidian_is_syncing ? "Waiting for Obsidian Sync to finish..." : "Loading Smart Connections...";
-        // set loading message
-        if(this.containerEl.children[1].innerHTML !== loading_msg){
-          this.containerEl.children[1].innerHTML = loading_msg;
+        // Update loading message using textContent instead of innerHTML
+        if(this.containerEl.children[1].textContent !== loading_msg){
+          this.containerEl.children[1].textContent = loading_msg;
         }
         await new Promise(r => setTimeout(r, 2000));
       }

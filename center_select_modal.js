@@ -40,7 +40,7 @@ export class CenterSelectModal extends FuzzySuggestModal {
       { command: 'Esc', purpose: 'Close' },
     ]);
 
-    this.submit_btn_text = 'Select Cluster Centers';
+    this.submit_btn_text = 'Select cluster centers';
 
     // Keydown to handle Ctrl+Enter
     this.inputEl.addEventListener('keydown', (e) => {
