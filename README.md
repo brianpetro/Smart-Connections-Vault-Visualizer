@@ -86,14 +86,20 @@ If you have used [Smart Connections Visualizer](https://github.com/Mossy1022/Sma
 
 Once installed, open the **Smart Visualizer View**:
 
-1. **Activate the Vault Visualizer Pane**  
-   - You’ll see a new ribbon icon labeled *“Clusters Visualizer”*. Click it.  
+1. **Select Cluster Centers**  
+   - Open the command pallet and select "Select Cluster Centers".  Pick the notes you want to be at the center of each cluster, then click "Select Cluster Centers" at the top of the list
 2. **Explore Your Clusters**  
    - The plugin automatically queries your vault for cluster data (via Smart Connections) and renders it into an interactive map.  
 3. **Hover, Pin, and Adjust**  
    - Hover over nodes to see names. Shift-click to select multiple notes or clusters. Adjust the threshold slider to show/hide certain links.
-
-> **Tip**: If you don’t see any clusters, be sure to configure or generate them in Smart Connections first. This plugin reads existing cluster definitions and membership info.
+4. **Modify Clusters**
+    1. Add notes to the center of the cluster -  Makes cluster connect to more notes like selection
+    2. Remove node(s) from cluster's center - Make cluster connect to fewer notes like selection (via zooming into central node and selecting the nodes within the central node to remove)
+    3. Remove the selected cluster (via selecting the central node)
+    4. Create new clusters from notes (via selecting node(s))
+    5. Remove nodes from cluster (via selecting nodes and the central node they are clustered with)
+        
+> **Tip**: If you don’t see any clusters, be sure to configure Smart Connections first. This plugin reads existing cluster definitions and membership info.
 
 ---
 

@@ -78,17 +78,16 @@ class SmartVisualizerPlugin extends Plugin {
     // });
 
     // Attach environment config
-    SmartEnv.wait_for({ loaded: true }).then(async () => {
-      await SmartEnv.create(this, {
-        global_prop: 'smart_env',
-        collections: {},
-        item_types: {},
-        modules: {},
-        ...this.smart_env_config,
-      });
-      // temp until sc op gets latest version of smart_env
-      this.env._components = {}; // clear component cache
+    await SmartEnv.create(this, {
+      global_prop: 'smart_env',
+      collections: {},
+      item_types: {},
+      modules: {},
+      ...this.smart_env_config,
     });
+    await SmartEnv.wait_for({ loaded: true });
+    // temp until sc op gets latest version of smart_env
+    this.env._components = {}; // clear component cache
     this.registerView(ClustersVisualizerView.view_type, (leaf) => new ClustersVisualizerView(leaf, this));
     this.addRibbonIcon('git-fork', 'Open smart connections visualizer', (evt) => {
       this.open_connections_visualizer();
