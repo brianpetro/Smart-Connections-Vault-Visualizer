@@ -19,7 +19,8 @@ export async function build_html(cluster_groups, opts = {}) {
       <div class="sc-top-bar">
         <div class="sc-visualizer-actions">
           <button class="sc-pin" aria-label="Pin the network in place (disable physics)">
-            ${this.get_icon_html?.('pin') || 'pin'}
+            <span class="sc-icon-pin">${this.get_icon_html?.('pin') || '📌'}</span>
+            <span class="sc-icon-pin-off" style="display:none;">${this.get_icon_html?.('pin-off') || '📍'}</span>
             <span class="sc-button-label">Pin layout</span>
           </button>
           <button class="sc-create-cluster" aria-label="Create a new cluster with connections relative to the selected node(s)">
@@ -828,6 +829,10 @@ export async function render(view, opts = {}) {
   // --- Pin button ---
   pinBtn?.addEventListener('click', () => {
     pinned = !pinned;
+  
+    const pinIcon = pinBtn.querySelector('.sc-icon-pin');
+    const pinOffIcon = pinBtn.querySelector('.sc-icon-pin-off');
+  
     if (pinned) {
       simulation.alpha(0).alphaTarget(0);
       nodes.forEach((n) => {
@@ -836,7 +841,9 @@ export async function render(view, opts = {}) {
         n.vx = 0;
         n.vy = 0;
       });
-      pinBtn.innerHTML = this.get_icon_html?.('pin-off') ?? 'pin-off';
+      // Switch icon visibility
+      pinIcon.style.display = 'none';
+      pinOffIcon.style.display = 'inline';
     } else {
       nodes.forEach((n) => {
         n.fx = null;
@@ -845,7 +852,9 @@ export async function render(view, opts = {}) {
         n.vy = 0;
       });
       simulation.alpha(0.8).restart();
-      pinBtn.innerHTML = this.get_icon_html?.('pin') ?? 'pin';
+      // Switch icon visibility back
+      pinIcon.style.display = 'inline';
+      pinOffIcon.style.display = 'none';
     }
   });
 
