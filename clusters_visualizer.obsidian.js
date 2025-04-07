@@ -12,7 +12,7 @@ import { SmartObsidianView } from "./smart_view.obsidian.js"; // copied from sc-
  */
 export class ClustersVisualizerView extends SmartObsidianView {
   static get view_type() { return "clusters-visualizer-view"; }
-  static get display_text() { return "Clusters Visualizer"; }
+  static get display_text() { return "Clusters visualizer"; }
   static get icon_name() { return "git-fork"; } // or any suitable icon
   static get default_open_location() { return "root"; }
 
@@ -28,7 +28,7 @@ export class ClustersVisualizerView extends SmartObsidianView {
    */
   async render_view(container = this.container) {
     this.container.empty();
-    this.container.createSpan().setText("Loading Clusters Visualizer...");
+    this.container.createSpan().setText("Loading clusters visualizer...");
     // Rely on `this.env.smart_clusters`
     const frag = await this.env.render_component(this.main_component_key, this, {
       attribution: this.attribution,
