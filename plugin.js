@@ -93,6 +93,9 @@ class SmartVisualizerPlugin extends Plugin {
       this.open_connections_visualizer();
     });
   }
+  open_connections_visualizer() {
+    ClustersVisualizerView.open(this.app.workspace);
+  }
 
   /**
    * Called by Obsidian when the plugin is unloaded.
