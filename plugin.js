@@ -85,8 +85,6 @@ class SmartVisualizerPlugin extends Plugin {
   }
   async initialize() {
     await SmartEnv.wait_for({ loaded: true });
-    // temp until sc op gets latest version of smart_env
-    this.env._components = {}; // clear component cache
   }
   open_connections_visualizer() {
     ClustersVisualizerView.open(this.app.workspace);
