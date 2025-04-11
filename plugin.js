@@ -48,7 +48,15 @@ class SmartVisualizerPlugin extends Plugin {
    * Called by Obsidian when the plugin is first loaded.
    * Registers the Smart Visualizer view and commands.
    */
-  async onload() {
+  onload() {
+    // Attach environment config
+    SmartEnv.create(this, {
+      global_prop: 'smart_env',
+      collections: {},
+      item_types: {},
+      modules: {},
+      ...this.smart_env_config,
+    });
 
     // Command to open the side panel
     this.addCommand({
@@ -69,29 +77,16 @@ class SmartVisualizerPlugin extends Plugin {
       },
     });
 
-    // this.addCommand({
-    //   id: 'open-connections-visualizer',
-    //   name: 'Open Connections Visualizer',
-    //   callback: () => {
-    //     this.open_connections_visualizer();
-    //   },
-    // });
-
-    // Attach environment config
-    await SmartEnv.create(this, {
-      global_prop: 'smart_env',
-      collections: {},
-      item_types: {},
-      modules: {},
-      ...this.smart_env_config,
-    });
-    await SmartEnv.wait_for({ loaded: true });
-    // temp until sc op gets latest version of smart_env
-    this.env._components = {}; // clear component cache
     this.registerView(ClustersVisualizerView.view_type, (leaf) => new ClustersVisualizerView(leaf, this));
     this.addRibbonIcon('git-fork', 'Open smart connections visualizer', (evt) => {
       this.open_connections_visualizer();
     });
+    this.app.workspace.onLayoutReady(this.initialize.bind(this));
+  }
+  async initialize() {
+    await SmartEnv.wait_for({ loaded: true });
+    // temp until sc op gets latest version of smart_env
+    this.env._components = {}; // clear component cache
   }
   open_connections_visualizer() {
     ClustersVisualizerView.open(this.app.workspace);
