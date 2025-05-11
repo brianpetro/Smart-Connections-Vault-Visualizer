@@ -23,7 +23,7 @@ Welcome to the **Smart Connections Vault Visualizer**—an intuitive, D3-powered
 
 ## Introduction
 
-**Clusters** are conceptual or thematic groups of notes (or items) within your vault. The Smart Connections Clusters Visualizer provides a **force-directed** or **radial** layout to:
+**Clusters** are conceptual or thematic groups of notes (or items) within your vault. The Smart Connections Vault Visualizer provides a **force-directed** or **radial** layout to:
 
 - Show clusters as “hubs” and the notes (members) around them.  
 - Dynamically filter relationships based on a chosen threshold.  
@@ -74,7 +74,7 @@ If you have used [Smart Connections Visualizer](https://github.com/Mossy1022/Sma
 
 2. **Install Visualizer**  
    - Open Obsidian’s **Community Plugins** store.  
-   - Search for **“Smart Connections Vault Visualizer”**.  
+   - Search for **“Smart Vault Visualizer”**.  
    - Click “Install” and then “Enable” to add it to your workspace.
 
 3. **Restart Obsidian** (if prompted)  
