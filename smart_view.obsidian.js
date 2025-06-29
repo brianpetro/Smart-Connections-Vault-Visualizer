@@ -126,7 +126,7 @@ export class SmartObsidianView extends ItemView {
       // }
       // wait for entities to be initialized
       while (!this.env?.collections_loaded){
-        const loading_msg = this.env?.obsidian_is_syncing ? "Waiting for Obsidian Sync to finish..." : "Loading Smart Connections...";
+        const loading_msg = "Loading Smart Environment...";
         
         const loadingEl = this.containerEl.children[1];
         if(loadingEl.textContent !== loading_msg){
