@@ -64,7 +64,8 @@ export class CenterSelectModal extends FuzzySuggestModal {
   }
   getItems() {
     return Object.keys(this.plugin.env.smart_sources.items).filter((key) => {
-      return !this.selected_items.includes(key);
+      const item = this.plugin.env.smart_sources.items[key];
+      return !this.selected_items.includes(key) && item && Array.isArray(item.vec);
     });
   }
   getItemText(key) {
