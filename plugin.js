@@ -51,12 +51,13 @@ class SmartVisualizerPlugin extends Plugin {
   onload() {
     // Attach environment config
     SmartEnv.create(this, {
-      global_prop: 'smart_env',
+      global_prop: 'smart_vault_env', 
       collections: {},
       item_types: {},
       modules: {},
       ...this.smart_env_config,
     });
+
 
     // Command to open the side panel
     this.addCommand({

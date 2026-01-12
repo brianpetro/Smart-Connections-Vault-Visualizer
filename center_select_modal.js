@@ -119,9 +119,20 @@ export class CenterSelectModal extends FuzzySuggestModal {
   async submit() {
     await this.env.cluster_groups.create_group(this.selected_items);
     this.close();
+  
+    // Just open it. Let the view lifecycle render when ready.
     this.plugin.open_cluster_visualizer();
-    this.plugin.get_cluster_visualizer_view()?.render_view();
+  
+    // Optional: if you want an immediate refresh after opening, do it on next tick
+    // so the leaf/view has time to exist.
+    setTimeout(() => {
+      const view = this.plugin.get_cluster_visualizer_view?.();
+      if (view?.render_view) {
+        view.render_view();
+      }
+    }, 0);
   }
+  
 }
 
 

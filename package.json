@@ -1,6 +1,6 @@
 {
   "name": "smart-vault-visualizer",
-  "version": "1.0.3",
+  "version": "1.0.44",
   "type": "module",
   "description": "Visualize Smart Clusters and Cluster Groups in Obsidian.",
   "scripts": {
@@ -35,6 +35,10 @@
     "smart-cluster-groups": "file:../jsbrains/smart-cluster-groups",
     "smart-clusters": "file:../jsbrains/smart-clusters",
     "smart-environment": "file:../jsbrains/smart-environment",
-    "smart-entities": "file:../jsbrains/smart-entities"
+    "smart-entities": "file:../jsbrains/smart-entities",
+    "smart-utils": "file:../jsbrains/smart-utils",
+  "smart-events": "file:../jsbrains/smart-events",
+  "smart-settings": "file:../jsbrains/smart-settings",
+  "smart-chat": "file:../jsbrains/smart-chat"
   }
 }
