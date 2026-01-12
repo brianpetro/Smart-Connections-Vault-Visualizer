@@ -54,6 +54,8 @@ export class CenterSelectModal extends FuzzySuggestModal {
     super.onOpen();
     if(this.current_input) {
       this.inputEl.value = this.current_input;
+      this.inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+
     }
     this.render_pills();
     this.inputEl.addEventListener('blur', () => {
@@ -62,7 +64,8 @@ export class CenterSelectModal extends FuzzySuggestModal {
   }
   getItems() {
     return Object.keys(this.plugin.env.smart_sources.items).filter((key) => {
-      return !this.selected_items.includes(key);
+      const item = this.plugin.env.smart_sources.items[key];
+      return !this.selected_items.includes(key) && item && Array.isArray(item.vec);
     });
   }
   getItemText(key) {
