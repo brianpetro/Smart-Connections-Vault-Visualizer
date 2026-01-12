@@ -54,6 +54,8 @@ export class CenterSelectModal extends FuzzySuggestModal {
     super.onOpen();
     if(this.current_input) {
       this.inputEl.value = this.current_input;
+      this.inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+
     }
     this.render_pills();
     this.inputEl.addEventListener('blur', () => {
@@ -62,7 +64,8 @@ export class CenterSelectModal extends FuzzySuggestModal {
   }
   getItems() {
     return Object.keys(this.plugin.env.smart_sources.items).filter((key) => {
-      return !this.selected_items.includes(key);
+      const item = this.plugin.env.smart_sources.items[key];
+      return !this.selected_items.includes(key) && item && Array.isArray(item.vec);
     });
   }
   getItemText(key) {
@@ -119,9 +122,20 @@ export class CenterSelectModal extends FuzzySuggestModal {
   async submit() {
     await this.env.cluster_groups.create_group(this.selected_items);
     this.close();
+  
+    // Just open it. Let the view lifecycle render when ready.
     this.plugin.open_cluster_visualizer();
-    this.plugin.get_cluster_visualizer_view()?.render_view();
+  
+    // Optional: if you want an immediate refresh after opening, do it on next tick
+    // so the leaf/view has time to exist.
+    setTimeout(() => {
+      const view = this.plugin.get_cluster_visualizer_view?.();
+      if (view?.render_view) {
+        view.render_view();
+      }
+    }, 0);
   }
+  
 }
 
 
